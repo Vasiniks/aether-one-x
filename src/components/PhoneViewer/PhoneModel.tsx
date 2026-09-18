@@ -1,8 +1,8 @@
 import { RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef, type MutableRefObject } from 'react'
+import { useMemo, useRef, type MutableRefObject, type RefObject } from 'react'
 import * as THREE from 'three'
-import { CameraAssembly } from './CameraAssembly'
+import { CameraAssembly, type OpticsControl } from './CameraAssembly'
 import { usePhoneConfig, type FocusLensId } from './PhoneConfig'
 import {
   FINISH_COLORS,
@@ -40,12 +40,13 @@ const FRAME_BODY_DEPTH = 0.0042
 const RING_BASE_Z = 0.0004
 const RING_DEPTH = 0.0035
 
-/** Raised rear camera plate, seated so it reads ~1mm proud of the ceramic. */
-const ISLAND = { size: 0.036, x: -0.023, y: 0.05, depth: 0.0018 }
+/** Raised rear camera plate, seated so it reads ~1mm proud of the ceramic,
+ *  and kept fully inside the body silhouette (frame edge at x = -0.0384). */
+const ISLAND = { size: 0.035, x: -0.0208, y: 0.05, depth: 0.0018 }
 const ISLAND_FACE_Z = -0.0028
 
 /** Flash LED, tucked to the right of the island against the ceramic. */
-const FLASH = { x: -0.005, y: 0.0665, radius: 0.0026 }
+const FLASH = { x: -0.004, y: 0.0665, radius: 0.0026 }
 
 /** Stepped titanium plinth the camera island rises from: roots the plate into
  * the ceramic so it reads as seats, never a floating puck. */
@@ -77,6 +78,11 @@ interface PhoneModelProps {
    * writer fights the director's opacity gate.
    */
   animateFocusRing?: boolean
+  /**
+   * Optional camera-optics drive (film macro). Forwarded to CameraAssembly;
+   * product pages omit it so the optics stay seated.
+   */
+  opticsControl?: RefObject<OpticsControl | null>
 }
 
 /** A self-owned default material set with a static display texture. */
@@ -87,7 +93,7 @@ function createDefaultMaterials(): PhoneMaterialSet {
   return set
 }
 
-export function PhoneModel({ materials, groups, animateFocusRing = true }: PhoneModelProps) {
+export function PhoneModel({ materials, groups, animateFocusRing = true, opticsControl }: PhoneModelProps) {
   // Only mint the default material set + static textures when this instance
   // actually owns its look (the film passes a shared, pre-built set).
   const ownMaterials = useMemo(() => (materials ? null : createDefaultMaterials()), [materials])
@@ -203,7 +209,12 @@ const LENSES: { key: FocusLensId }[] = [{ key: 'main' }, { key: 'ultra' }, { key
         </mesh>
 
         {/* Rear camera system */}
-        <CameraAssembly materials={set} geometry={islandGeometry} lensRefs={lensRefs} />
+        <CameraAssembly
+          materials={set}
+          geometry={islandGeometry}
+          lensRefs={lensRefs}
+          control={opticsControl}
+        />
         <FlashModule materials={set} />
 
         {/* Brand decal (rear) */}

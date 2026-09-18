@@ -56,14 +56,21 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
   const interior = useRef<THREE.PointLight>(null)
   const ambient = useRef<THREE.AmbientLight>(null)
   const bgMat = useRef<THREE.MeshBasicMaterial>(null)
-  const paletteKey = useRef('')
+  const bgTop = useRef(new THREE.Color(DEFAULT_STAGE.topColor))
+  const bgBase = useRef(new THREE.Color(DEFAULT_STAGE.baseColor))
+  const paintedTop = useRef(new THREE.Color(DEFAULT_STAGE.topColor))
+  const paintedBase = useRef(new THREE.Color(DEFAULT_STAGE.baseColor))
   const accPos = useRef(new THREE.Vector3(0, 0.1, 0.4))
   const intPos = useRef(new THREE.Vector3(0, 0, 0))
 
   useFrame((state, delta) => {
     const act = actAt(progress.get()).id
     const target: StageLightState = STAGE_LIGHTING[act] ?? DEFAULT_STAGE
-    const d = 1 - Math.exp(-delta * 5)
+    // Two damping rates: k=6 lets accent/intensity channels track the moving
+    // camera tightly; k=3.5 lets the background grade breathe across acts
+    // instead of snapping, so nothing jumps between acts.
+    const d = 1 - Math.exp(-delta * 6)
+    const dSlow = 1 - Math.exp(-delta * 3.5)
 
     if (ambient.current) {
       ambient.current.intensity += (0.08 + target.envIntensity * 0.04 - ambient.current.intensity) * d
@@ -107,11 +114,27 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
       accent.current.position.copy(accPos.current)
     }
 
-    // Background gradient follows the act's palette (repaint only on change).
-    const palette = target.baseColor + target.topColor
-    if (palette !== paletteKey.current) {
-      paletteKey.current = palette
-      if (bgMat.current) bgMat.current.map = makeBackground(target.topColor, target.baseColor)
+    // Background palette damps at the slow rate (dSlow) so the grade breathes
+    // while the rig follows the camera. Repaint the 1x128 canvas only when a
+    // channel has moved at least one 8-bit step (~1/255) to stay cheap.
+    _from.copy(bgTop.current).lerp(_to.set(target.topColor), dSlow)
+    bgTop.current.copy(_from)
+    _from.copy(bgBase.current).lerp(_to.set(target.baseColor), dSlow)
+    bgBase.current.copy(_from)
+    if (bgMat.current) {
+      const step = 1 / 255
+      const moved =
+        Math.abs(bgTop.current.r - paintedTop.current.r) > step ||
+        Math.abs(bgTop.current.g - paintedTop.current.g) > step ||
+        Math.abs(bgTop.current.b - paintedTop.current.b) > step ||
+        Math.abs(bgBase.current.r - paintedBase.current.r) > step ||
+        Math.abs(bgBase.current.g - paintedBase.current.g) > step ||
+        Math.abs(bgBase.current.b - paintedBase.current.b) > step
+      if (moved) {
+        bgMat.current.map = makeBackground('#' + bgTop.current.getHexString(), '#' + bgBase.current.getHexString())
+        paintedTop.current.copy(bgTop.current)
+        paintedBase.current.copy(bgBase.current)
+      }
     }
   })
 

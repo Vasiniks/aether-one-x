@@ -2,6 +2,7 @@ import {
   CanvasTexture,
   Color,
   MeshPhysicalMaterial,
+  NoColorSpace,
   type MeshPhysicalMaterialParameters,
 } from 'three'
 import type { FinishId } from '../../data/product'
@@ -112,10 +113,15 @@ function makeMaterial(overrides: MeshPhysicalMaterialParameters): MeshPhysicalMa
 
 /** Creates a full, independent material set for one phone instance. */
 export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
+  const ceramic = createCeramicMottleTexture()
+  const brush = createBrushTexture()
+  const lensGloss = createLensGlossMap()
+
   const frame = makeMaterial({
     color: new Color(params.frameColor),
     metalness: 1,
     roughness: params.frameRoughness,
+    roughnessMap: brush,
     anisotropy: params.frameAnisotropy,
     // Roughness anisotropy sheen rotates with the long axis of the phone.
     anisotropyRotation: Math.PI / 2,
@@ -126,6 +132,8 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     color: new Color(params.backColor),
     metalness: params.backMetalness,
     roughness: params.backRoughness,
+    roughnessMap: ceramic.data,
+    map: ceramic.color,
     clearcoat: 0.7,
     clearcoatRoughness: 0.2,
     envMapIntensity: 1.4,
@@ -135,6 +143,8 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     color: new Color(params.islandColor),
     metalness: params.backMetalness,
     roughness: Math.min(0.16, params.backRoughness * 0.8),
+    roughnessMap: ceramic.data,
+    map: ceramic.color,
     clearcoat: 0.75,
     clearcoatRoughness: 0.15,
     envMapIntensity: 1.5,
@@ -171,11 +181,12 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     color: new Color('#0a101d'),
     metalness: 0,
     roughness: 0.02,
+    roughnessMap: lensGloss,
     clearcoat: 1,
     clearcoatRoughness: 0.05,
     iridescence: 0.25,
     iridescenceIOR: 1.3,
-    envMapIntensity: 1.6,
+    envMapIntensity: 1.8,
   })
 
   const lensBarrel = makeMaterial({
@@ -312,6 +323,88 @@ export function createLogoTexture(): CanvasTexture {
   const texture = new CanvasTexture(canvas)
   texture.needsUpdate = true
   return texture
+}
+
+function colorFromCanvas(canvas: HTMLCanvasElement): CanvasTexture {
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = 'srgb'
+  texture.anisotropy = 8
+  return texture
+}
+
+function dataFromCanvas(canvas: HTMLCanvasElement): CanvasTexture {
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = NoColorSpace
+  texture.anisotropy = 8
+  return texture
+}
+
+export function createCeramicMottleTexture(): { color: CanvasTexture; data: CanvasTexture } {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 128, 128)
+    let v = 2024 * 7919 % 65536
+    const rng = () => {
+      v = (v * 9301 + 49297) % 233280
+      return v / 233280
+    }
+    for (let i = 0; i < 46; i++) {
+      const x = rng() * 128
+      const y = rng() * 128
+      const r = 4 + rng() * 14
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+      g.addColorStop(0, `rgba(241,241,243,${0.35 + rng() * 0.35})`)
+      g.addColorStop(1, 'rgba(241,241,243,0)')
+      ctx.fillStyle = g
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  const color = colorFromCanvas(canvas)
+  const data = dataFromCanvas(canvas)
+  return { color, data }
+}
+
+export function createBrushTexture(): CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 64, 64)
+    let v = 77 * 7919 % 65536
+    const rng = () => {
+      v = (v * 9301 + 49297) % 233280
+      return v / 233280
+    }
+    for (let x = 0; x < 64; x++) {
+      ctx.fillStyle = `rgba(244,244,246,${0.25 + rng() * 0.35})`
+      ctx.fillRect(x, 0, rng() > 0.8 ? 2 : 1, 64)
+    }
+    ctx.fillStyle = 'rgba(240,240,243,0.5)'
+    ctx.fillRect(20, 0, 2, 64)
+    ctx.fillRect(44, 0, 3, 64)
+  }
+  return dataFromCanvas(canvas)
+}
+
+export function createLensGlossMap(): CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    const g = ctx.createRadialGradient(32, 32, 3, 32, 32, 30)
+    g.addColorStop(0, '#c0c0c0')
+    g.addColorStop(0.45, '#dcdcdc')
+    g.addColorStop(1, '#f5f5f5')
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, 64, 64)
+  }
+  return dataFromCanvas(canvas)
 }
 
 /** A procedural aurora wallpaper for the display. */

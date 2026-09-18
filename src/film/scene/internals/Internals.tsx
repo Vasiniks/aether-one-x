@@ -184,19 +184,24 @@ export function Internals({
     placeBatt(coilG, COIL, 1)
     placeBatt(battG, BATT, 2)
 
-    // BattLift override: the cell rises out of the chassis and tilts slightly
-    // toward the camera. Z comes from the authored hero keyframe, not the
-    // x-ray explode (which is 0 by the energy climax).
+    // BattLift override: the cell rises out of the chassis and tips its label
+    // face toward the camera so the energy climax reads as one isolated cell.
     if (battG.current && c.battLift > 0.01) {
-      battG.current.position.z = -0.0016 + 0.0055 * c.battLift
+      battG.current.position.z = -0.0016 + 0.0075 * c.battLift
       battG.current.rotation.z = 0.02 * c.battLift
+      battG.current.rotation.x = c.battLift * 0.06
+    } else if (battG.current) {
+      battG.current.rotation.x = 0
+      battG.current.rotation.z = 0
     }
 
     // ChipLift: the board (and die sitting on it) pushes toward the camera
-    // at the end of the flat-on beat so the packaging reads as lifted.
-    if (boardG.current && c.chipLift > 0.01) {
-      boardG.current.position.z += c.chipLift * 0.0012
-      boardG.current.position.y += c.chipLift * 0.0004
+    // along its surface normal so the packaging lifts out of the plane, and
+    // tips gently onto its face for the flat-on beat.
+    if (boardG.current) {
+      boardG.current.position.z += c.chipLift * 0.0022
+      boardG.current.position.y += c.chipLift * 0.0006
+      boardG.current.rotation.x = c.chipLift * 0.045
     }
 
     // Fade the whole stack together; the board + chip stay strongest while

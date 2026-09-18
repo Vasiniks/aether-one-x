@@ -37,6 +37,8 @@ export type ChapterLayout =
   | 'tiers'
   | 'inspect'
   | 'chiplead'
+  | 'flank'
+  | 'hierarchy'
 
 export interface ChapterCopy {
   /** Short act name (used only for indexing / rails, never a kicker). */
@@ -115,7 +117,7 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
   },
   camera: {
     label: 'CAMERA',
-    layout: 'stat',
+    layout: 'flank',
     title: 'The camera.',
     num: String(CAM_MAIN.mp),
     numUnit: 'MP MAIN',
@@ -150,7 +152,7 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
   },
   battery: {
     label: 'POWER',
-    layout: 'stat',
+    layout: 'hierarchy',
     title: 'Power that lasts.',
     num: String(BATTERY.capacity),
     numUnit: 'MAH',

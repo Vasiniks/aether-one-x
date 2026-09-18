@@ -408,6 +408,103 @@ export function createGraphiteTexture(): THREE.CanvasTexture {
   return tex
 }
 
+function colorFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 8
+  return tex
+}
+
+function dataFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.NoColorSpace
+  tex.anisotropy = 8
+  return tex
+}
+
+export function createShieldTexture(): { map: THREE.CanvasTexture; roughness: THREE.CanvasTexture } {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#f8f8f9'
+  ctx.fillRect(0, 0, 64, 64)
+  ctx.strokeStyle = '#eef0f3'
+  ctx.lineWidth = 1
+  for (let y = 3; y < 62; y += 3) {
+    ctx.beginPath()
+    ctx.moveTo(2, y)
+    ctx.lineTo(62, y + (y % 9 ? 0 : 1))
+    ctx.stroke()
+  }
+  ctx.strokeStyle = '#e9eaee'
+  ctx.lineWidth = 2
+  ctx.strokeRect(4, 4, 56, 56)
+  ctx.lineWidth = 1
+  ctx.strokeRect(9, 9, 46, 46)
+  const map = colorFromCanvas(canvas)
+  const roughness = dataFromCanvas(canvas)
+  return { map, roughness }
+}
+
+export function createBatterySeamTexture(): { map: THREE.CanvasTexture; roughness: THREE.CanvasTexture } {
+  const canvas = document.createElement('canvas')
+  canvas.width = 64
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, 64, 256)
+  ctx.strokeStyle = '#f0f0f3'
+  ctx.lineWidth = 1.5
+  for (const x of [21, 42]) {
+    ctx.beginPath()
+    ctx.moveTo(x, 4)
+    ctx.lineTo(x + 0.5, 252)
+    ctx.stroke()
+  }
+  const map = colorFromCanvas(canvas)
+  const roughness = dataFromCanvas(canvas)
+  return { map, roughness }
+}
+
+export function createSensorRingTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, 64, 64)
+  ctx.strokeStyle = '#f2f2f5'
+  ctx.lineWidth = 1
+  for (const r of [9, 21, 27]) {
+    ctx.beginPath()
+    ctx.arc(32, 32, r, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(32, 32, 15, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(14, 44)
+  ctx.lineTo(14, 51)
+  ctx.lineTo(23, 51)
+  ctx.stroke()
+  return colorFromCanvas(canvas)
+}
+
+export function createLensGlossTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext('2d')!
+  const base = ctx.createRadialGradient(32, 32, 3, 32, 32, 30)
+  base.addColorStop(0, '#c0c0c0')
+  base.addColorStop(0.45, '#dcdcdc')
+  base.addColorStop(1, '#f5f5f5')
+  ctx.fillStyle = base
+  ctx.fillRect(0, 0, 64, 64)
+  return dataFromCanvas(canvas)
+}
+
 export function createInternalsMaterials() {
   const pcb = transparentMaterial(
     new THREE.MeshStandardMaterial({
@@ -434,9 +531,12 @@ export function createInternalsMaterials() {
       envMapIntensity: 1.1,
     }),
   )
+  const shieldTex = createShieldTexture()
   const shield = transparentMaterial(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#39404d'),
+      map: shieldTex.map,
+      roughnessMap: shieldTex.roughness,
       metalness: 0.95,
       roughness: 0.25,
       envMapIntensity: 1.3,
@@ -474,9 +574,12 @@ export function createInternalsMaterials() {
       envMapIntensity: 1,
     }),
   )
+  const batterySeam = createBatterySeamTexture()
   const batteryBody = transparentMaterial(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#171c24'),
+      map: batterySeam.map,
+      roughnessMap: batterySeam.roughness,
       metalness: 0.3,
       roughness: 0.6,
       envMapIntensity: 0.5,
@@ -538,9 +641,12 @@ export function createInternalsMaterials() {
       envMapIntensity: 0.8,
     }),
   )
+  const sensorRing = createSensorRingTexture()
   const sensor = transparentMaterial(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#16223a'),
+      map: sensorRing,
+      emissiveMap: sensorRing,
       metalness: 0.1,
       roughness: 0.12,
       envMapIntensity: 1.1,
@@ -599,6 +705,7 @@ export function createInternalsMaterials() {
   const lensGlass = transparentMaterial(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#0c1620'),
+      roughnessMap: createLensGlossTexture(),
       metalness: 0.2,
       roughness: 0.08,
       envMapIntensity: 2.2,

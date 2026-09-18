@@ -4,12 +4,13 @@ import * as THREE from 'three'
 import type { MotionValue } from 'framer-motion'
 import { sampleFilm, computeFilmStates } from '../camera'
 import { actAt } from '../story'
-import { centerBias, fitFov } from '../framing'
+import { centerBias, fitFov, macroFloorFov } from '../framing'
 import { FILM_MATERIALS } from './materials'
 import { getLiveScreen, type ScreenMode } from './display/LiveScreen'
 import { STAGE_LIGHTING } from '../lighting/light-states'
 import { setXrayActive, updatePick, hoverPointer, tick as tickInspect, resyncPick } from '../xray/inspect'
 import type { InternalsControl } from './internals/Internals'
+import type { OpticsControl } from '../../components/PhoneViewer/CameraAssembly'
 
 const REDUCED =
   typeof window !== 'undefined' &&
@@ -83,12 +84,14 @@ export function FilmDirector({
   heroRef,
   internals,
   internalsGroup,
+  opticsRef,
   shellRefs,
 }: {
   progress: MotionValue<number>
   heroRef: RefObject<THREE.Group | null>
   internals: RefObject<InternalsControl | null>
   internalsGroup: RefObject<THREE.Group | null>
+  opticsRef: RefObject<OpticsControl | null>
   shellRefs: {
     frame: MutableRefObject<THREE.Group | null>
     back: MutableRefObject<THREE.Group | null>
@@ -112,8 +115,14 @@ export function FilmDirector({
     const aspect = state.size.width / state.size.height
     const bx = centerBias(aspect, 'x')
     const by = centerBias(aspect, 'y')
+    // Detail shots (no `fit`) are authored against a 3:2 frame; on ultrawides
+    // the fixed world offset leaves the focused optics hugging the near edge
+    // (the hero glass ring gets cropped). Amplify the macro offset with the
+    // wide-frame room - the phone slides deeper into the open space the same
+    // way centerBias already does for hero keys, so the module reads centered.
+    const macroPx = t.fit == null ? 1 + Math.min(1, Math.max(0, (aspect - 1.9) / 1.6)) * 5 : 1
     // Read the off-center offset once; never mutate the shared sample buffer.
-    const px = t.fit != null ? t.px * bx : t.px
+    const px = t.fit != null ? t.px * bx : t.px * macroPx
     const py = t.fit != null ? t.py * by : t.py
 
     // Pose is written before framing so the responsive fit reads the live
@@ -139,9 +148,9 @@ export function FilmDirector({
     // detail keys fall back to their authored macro fov. The fitFov sampler
     // always reads the authored pose (t.*) rather than the live damped g.* so
     // the responsive FOV can never lag the phone and create a feedback loop.
+    const distance = cam.position.distanceTo(SCRATCH.look)
     let targetFov = t.fov
     if (t.fit != null) {
-      const distance = cam.position.distanceTo(SCRATCH.look)
       const fitValue = fitFov({
         fit: t.fit,
         distance,
@@ -155,6 +164,14 @@ export function FilmDirector({
       })
       const w = Math.min(1, Math.max(0, t.fit))
       targetFov = Math.min(t.fovMax, t.fov + (fitValue - t.fov) * w)
+    }
+    // Narrow-aspect macro floor: authored macro shots are tuned against a 3:2
+    // frame, so on a portrait phone the module / die / cell can overrun the
+    // horizontal frame. Widen the lens just enough to keep the subject fully
+    // in view (desktop and ultrawide keep their tight, hand-tuned macro).
+    if (aspect < 0.8) {
+      const floor = macroFloorFov(p, distance, aspect)
+      if (floor > targetFov) targetFov = floor
     }
 
     // Pose and FOV share one damp: slow weight on big moves, no overshoot.
@@ -257,6 +274,15 @@ export function FilmDirector({
       c.chipLift = s.chipLift
       c.battLift = s.battLift
       c.subjectDim = s.subjectDim
+    }
+
+    // Camera optics explosion: the shell module's elements part from the body
+    // along the optical axis only while the macro owns the frame. While the
+    // internals own the frame (x-ray/rebuild) the shell module is culled so
+    // its 38 meshes don't render a redundant pass over their internals twins.
+    if (opticsRef.current) {
+      opticsRef.current.optics = s.optical
+      opticsRef.current.visible = !ghost
     }
 
     // Hover inspection: only during the x-ray / rebuild pass. Fine pointers

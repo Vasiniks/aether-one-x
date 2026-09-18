@@ -86,6 +86,7 @@ export function EditorialStat({
   noteFrom = 0.68,
   align = 'left',
   ruleFrom = 0.24,
+  rowsVariant = 'table',
 }: {
   local: MotionValue<number>
   headline?: string
@@ -100,6 +101,7 @@ export function EditorialStat({
   noteFrom?: number
   align?: 'left' | 'center'
   ruleFrom?: number
+  rowsVariant?: 'table' | 'notes'
 }) {
   const dir = align === 'center' ? 'items-center text-center' : 'items-start text-left'
   const unitRow = align === 'center' ? 'justify-center' : 'justify-start'
@@ -127,7 +129,7 @@ export function EditorialStat({
       {num ? (
         <RevealWindow local={local} from={numFrom} to={Math.min(1, numFrom + 0.1)} className="mt-5">
           <div className={`flex items-end gap-4 ${unitRow}`}>
-            <span className="spec-num spec-num--gradient text-[clamp(88px,17vw,168px)]">{num}</span>
+            <span className="spec-num spec-num--gradient spec-num--stat">{num}</span>
             {numUnit ? (
               <RevealWindow
                 local={local}
@@ -142,7 +144,7 @@ export function EditorialStat({
         </RevealWindow>
       ) : null}
 
-      {rows?.length ? <SpecList local={local} from={rowsFrom} rows={rows} /> : null}
+      {rows?.length ? <SpecList local={local} from={rowsFrom} rows={rows} variant={rowsVariant} /> : null}
 
       {note ? <NoteLine local={local} from={noteFrom} note={note} className="mt-5" /> : null}
     </div>
@@ -155,25 +157,185 @@ export function SpecList({
   from,
   rows,
   className,
+  variant = 'table',
 }: {
   local: MotionValue<number>
   from: number
   rows: SpecLine[]
   className?: string
+  /** `notes`: quiet editorial rows without ruled separators (camera flank). */
+  variant?: 'table' | 'notes'
 }) {
   return (
     <RevealWindow local={local} from={from} to={Math.min(1, from + 0.14)} className={`mt-5 ${className ?? ''}`}>
       <dl>
-        {rows.map((row) => (
-          <div key={row.k} className="mt-3 flex items-baseline justify-between gap-8 border-t border-white/10 pt-3">
-            <dt className="spec-tech">{row.k}</dt>
-            <dd className="font-display text-[17px] font-medium tracking-tight text-ink tabular-nums">
-              {row.v}
-            </dd>
-          </div>
-        ))}
+        {rows.map((row) =>
+          variant === 'notes' ? (
+            <div key={row.k} className="mt-2.5 flex items-baseline gap-4 sm:gap-10">
+              <dt className="spec-tech whitespace-nowrap">{row.k}</dt>
+              <dd className="font-display text-[15px] font-medium tracking-tight text-ink tabular-nums sm:text-[17px]">
+                {row.v}
+              </dd>
+            </div>
+          ) : (
+            <div
+              key={row.k}
+              className="mt-3 flex items-baseline justify-between gap-8 border-t border-white/10 pt-3"
+            >
+              <dt className="spec-tech">{row.k}</dt>
+              <dd className="font-display text-[17px] font-medium tracking-tight text-ink tabular-nums">
+                {row.v}
+              </dd>
+            </div>
+          ),
+        )}
       </dl>
     </RevealWindow>
+  )
+}
+
+/** Camera-instrument flank: a left-edge hairline rail on the module's axis
+ *  plus an editorial stat whose sensor rows read as quiet notes. */
+export function EditorialFlank({
+  local,
+  headline,
+  headlineFrom = 0.1,
+  num,
+  numFrom = 0.24,
+  numUnit,
+  unitFrom = 0.34,
+  rows,
+  rowsFrom = 0.5,
+  note,
+  noteFrom = 0.68,
+  ruleFrom = 0.2,
+}: {
+  local: MotionValue<number>
+  headline?: string
+  headlineFrom?: number
+  num?: string
+  numFrom?: number
+  numUnit?: string
+  unitFrom?: number
+  rows?: SpecLine[]
+  rowsFrom?: number
+  note?: string
+  noteFrom?: number
+  ruleFrom?: number
+}) {
+  return (
+    <div className="flex items-stretch gap-5 sm:gap-7">
+      <Hairline
+        local={local}
+        from={ruleFrom}
+        to={Math.min(1, ruleFrom + 0.14)}
+        vertical
+        className="hidden w-px bg-gradient-to-b from-white/45 via-white/15 to-transparent lg:block"
+      />
+      <EditorialStat
+        local={local}
+        headline={headline}
+        headlineFrom={headlineFrom}
+        num={num}
+        numFrom={numFrom}
+        numUnit={numUnit}
+        unitFrom={unitFrom}
+        rows={rows}
+        rowsFrom={rowsFrom}
+        note={note}
+        noteFrom={noteFrom}
+        ruleFrom={ruleFrom}
+        rowsVariant="notes"
+      />
+    </div>
+  )
+}
+
+/** Battery hierarchy: a giant capacity opener, then inline rows whose small
+ *  numerals align into a clean right column, each revealed in its own window. */
+export function HierarchyStat({
+  local,
+  headline,
+  headlineFrom = 0.1,
+  num,
+  numFrom = 0.22,
+  numUnit,
+  unitFrom = 0.32,
+  rows,
+  rowsFrom = 0.48,
+  note,
+  noteFrom = 0.66,
+  ruleFrom = 0.18,
+}: {
+  local: MotionValue<number>
+  headline?: string
+  headlineFrom?: number
+  num?: string
+  numFrom?: number
+  numUnit?: string
+  unitFrom?: number
+  rows?: SpecLine[]
+  rowsFrom?: number
+  note?: string
+  noteFrom?: number
+  ruleFrom?: number
+}) {
+  return (
+    <div className="flex flex-col items-start">
+      {headline ? (
+        <RevealWindow local={local} from={headlineFrom} to={Math.min(1, headlineFrom + 0.08)}>
+          <h3 className="text-2xl leading-[1.04] font-semibold tracking-tight text-ink sm:text-3xl lg:text-4xl">
+            {headline}
+          </h3>
+        </RevealWindow>
+      ) : null}
+
+      <Hairline
+        local={local}
+        from={ruleFrom}
+        to={Math.min(1, ruleFrom + 0.1)}
+        className="mt-4 h-px w-14 bg-gradient-to-r from-white/60 to-white/10"
+      />
+
+      {num ? (
+        <RevealWindow local={local} from={numFrom} to={Math.min(1, numFrom + 0.1)} className="mt-4">
+          <div className="flex items-end gap-4">
+            <span className="spec-num spec-num--gradient spec-num--stat">{num}</span>
+            {numUnit ? (
+              <RevealWindow
+                local={local}
+                from={unitFrom ?? numFrom + 0.1}
+                to={Math.min(1, (unitFrom ?? numFrom + 0.1) + 0.08)}
+                className="mb-3"
+              >
+                <span className="spec-unit">{numUnit}</span>
+              </RevealWindow>
+            ) : null}
+          </div>
+        </RevealWindow>
+      ) : null}
+
+      {rows?.length ? (
+        <div className="mt-5 w-full max-w-[16rem]">
+          {rows.map((row, i) => (
+            <RevealWindow
+              key={row.k}
+              local={local}
+              from={rowsFrom + i * 0.07}
+              to={Math.min(1, rowsFrom + i * 0.07 + 0.09)}
+              className={i > 0 ? 'border-t border-white/10 pt-3' : ''}
+            >
+              <div className="flex items-baseline justify-between gap-6">
+                <dt className="spec-tech">{row.k}</dt>
+                <dd className="spec-num text-[clamp(20px,2vw,30px)] text-ink tabular-nums">{row.v}</dd>
+              </div>
+            </RevealWindow>
+          ))}
+        </div>
+      ) : null}
+
+      {note ? <NoteLine local={local} from={noteFrom} note={note} className="mt-5" /> : null}
+    </div>
   )
 }
 
@@ -359,11 +521,22 @@ export function NoteLine({
 /** Big borderline numbers for the x-ray editorial moment. */
 export function XRayRead({ x, y, z }: { x: string; y: string; z: string }) {
   return (
-    <div className="font-mono text-[11px] tracking-[0.22em] text-white/45">
-      <div className="flex gap-6">
-        <span>X {x}</span>
-        <span>Y {y}</span>
-        <span>Z {z}</span>
+    <div className="font-mono text-[11px] tracking-[0.22em]">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+        <span className="flex items-baseline gap-2">
+          <span className="text-faint">X</span>
+          <span className="text-ink tabular-nums">{x}</span>
+          <span className="text-white/40" aria-hidden="true">·</span>
+        </span>
+        <span className="flex items-baseline gap-2">
+          <span className="text-faint">Y</span>
+          <span className="text-ink tabular-nums">{y}</span>
+          <span className="text-white/40" aria-hidden="true">·</span>
+        </span>
+        <span className="flex items-baseline gap-2">
+          <span className="text-faint">Z</span>
+          <span className="text-ink tabular-nums">{z}</span>
+        </span>
       </div>
       <p className="mt-2 text-[9px] tracking-[0.3em] text-faint">INTERNAL LAYOUT, LIVE</p>
     </div>

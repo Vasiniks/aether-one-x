@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { useScroll } from 'motion/react'
+import { useScroll, useTransform } from 'motion/react'
 import WebGL from 'three/examples/jsm/capabilities/WebGL.js'
 import { PhoneFrame } from '../components/Phone/PhoneFrame'
 import { usePhoneConfig } from '../components/PhoneViewer/PhoneConfig'
 import { useInView } from '../hooks/useInView'
+import { createGuideSession, smoothGuide } from './guide'
 import { FilmOverlay } from './overlay/FilmOverlay'
 import { XrayTooltip } from './xray/XrayTooltip'
 
@@ -13,6 +14,12 @@ const FilmScene = lazy(() => import('./scene/FilmScene').then((m) => ({ default:
  * The Aether One X film: one very long scroll sequence whose sticky stage is
  * driven by a single master progress value. The 3D scene and the editorial
  * overlay both read that value, so the whole page behaves like one shot.
+ *
+ * Raw scroll first flows through a magnetic guidance pass (`smoothGuide`):
+ * while scroll is slow the value is gently attracted to the nearest authored
+ * story node (the 13 act midpoints) with hysteresis around each node, and the
+ * attraction releases entirely at speed, so the film is never locked or
+ * hijacked. Fast scrolls and the opening/finale pass straight through.
  *
  * The heavy scene is never mounted until the sticky stage first touches the
  * viewport (shared useInView once-flag), and the Canvas frameloop runs only
@@ -31,6 +38,15 @@ export function Film() {
     target: ref,
     offset: ['start start', 'end end'],
   })
+
+  // Guidance session: every raw scroll reading passes through one magnetic
+  // pass before the director and the overlay see it, so slow scrolls settle
+  // onto the nearest authored beat while fast scrolls pass straight through.
+  const session = useRef(createGuideSession())
+  const t0 = useRef(performance.now())
+  const guided = useTransform(scrollYProgress, (v) =>
+    smoothGuide(v, session.current, Number.isNaN(session.current.lastP) ? t0.current : performance.now()),
+  )
 
   // Continuous visibility gate. The shared hook fires once by design, so the
   // per-frame pause needs its own observer. It watches the sticky stage, not
@@ -64,7 +80,7 @@ export function Film() {
         <div className="absolute inset-0">
           {webgl && stageSeen ? (
             <Suspense fallback={<FilmFallback />}>
-              <FilmScene progress={scrollYProgress} playing={playing} />
+              <FilmScene progress={guided} playing={playing} />
             </Suspense>
           ) : (
             <FilmFallback />
@@ -73,7 +89,7 @@ export function Film() {
 
         {/* Overlay + tooltip mount with the scene: before the stage approaches
             they would only burn the scroll cue's infinite animation loop. */}
-        {stageSeen ? <FilmOverlay progress={scrollYProgress} /> : null}
+        {stageSeen ? <FilmOverlay progress={guided} /> : null}
         {stageSeen ? <XrayTooltip /> : null}
       </div>
     </section>

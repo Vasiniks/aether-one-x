@@ -131,6 +131,8 @@ export interface FilmStates {
   subjectDim: number
   /** 0..1 the camera has dived on the physical lens barrels (camera macro). */
   cameraFocus: number
+  /** 0..1 the shell optics spread outward from the rear surface (camera macro). */
+  optical: number
   /** 0..1 partial interior glow during the energy story. */
   energy: number
   /** 0..1 display brightness of the live screen. */
@@ -160,6 +162,7 @@ const STATES: FilmStates = {
   battLift: 0,
   subjectDim: 0,
   cameraFocus: 0,
+  optical: 0,
   energy: 0,
   screenOn: 0,
 }
@@ -168,6 +171,9 @@ export function computeFilmStates(p: number): FilmStates {
   const cameraFocus = ramplike(p, 0.635, 0.665, 0.705, 0.73)
   const chipLift = ramplike(p, 0.34, 0.37, 0.455, 0.485)
   const battLift = ramplike(p, 0.893, 0.902, 0.918, 0.926)
+  // The optical elements part from the module only after the camera has
+  // settled on the island, and reseat before the display act pulls away.
+  const optical = ramplike(p, 0.645, 0.675, 0.715, 0.74)
 
   // All x-ray windows close by 0.52 (end of rebuild) so the shell re-solidifies
   // over a home stack, not half-floating parts.
@@ -199,6 +205,7 @@ export function computeFilmStates(p: number): FilmStates {
     ramplike(p, 0.39, 0.42, 0.46, 0.485) + ramplike(p, 0.893, 0.905, 0.92, 0.928),
   )
   STATES.cameraFocus = cameraFocus
+  STATES.optical = optical
   STATES.energy = ramplike(p, 0.885, 0.9, 0.91, 0.93)
   STATES.screenOn = ramplike(p, 0.03, 0.08, 1, 1)
 

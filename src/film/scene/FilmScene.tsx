@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, type MutableRefObject, type RefObject } fr
 import * as THREE from 'three'
 import type { MotionValue } from 'framer-motion'
 import { PhoneModel } from '../../components/PhoneViewer/PhoneModel'
+import type { OpticsControl } from '../../components/PhoneViewer/CameraAssembly'
 import { Internals, type InternalsControl } from './internals/Internals'
 import { FILM_MATERIALS } from './materials'
 import { getLiveScreen } from './display/LiveScreen'
@@ -42,6 +43,7 @@ export function FilmScene({ progress, playing = true }: { progress: MotionValue<
   const frameShell = useRef<THREE.Group>(null)
   const backShell = useRef<THREE.Group>(null)
   const glassShell = useRef<THREE.Group>(null)
+  const optics = useRef<OpticsControl>({ optics: 0 })
 
   useEffect(() => {
     const bright = (0.55 + Math.random() * 0.25).toFixed(2)
@@ -62,6 +64,7 @@ export function FilmScene({ progress, playing = true }: { progress: MotionValue<
           heroRef={heroRef as RefObject<THREE.Group | null>}
           internals={internals as RefObject<InternalsControl | null>}
           internalsGroup={internalsGroup as RefObject<THREE.Group | null>}
+          opticsRef={optics as RefObject<OpticsControl | null>}
           shellRefs={{
             frame: frameShell as MutableRefObject<THREE.Group | null>,
             back: backShell as MutableRefObject<THREE.Group | null>,
@@ -72,6 +75,7 @@ export function FilmScene({ progress, playing = true }: { progress: MotionValue<
           <PhoneModel
             materials={FILM_MATERIALS}
             animateFocusRing={false}
+            opticsControl={optics as RefObject<OpticsControl | null>}
             groups={{
               frame: frameShell as MutableRefObject<THREE.Group | null>,
               back: backShell as MutableRefObject<THREE.Group | null>,

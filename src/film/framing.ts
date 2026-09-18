@@ -204,3 +204,38 @@ export function frameOffset(aspect: number, authoredPx?: number): number {
 }
 
 // perf: cheap - pure arithmetic, no allocations.
+
+/**
+ * Frustum floor for the authored macro shots on narrow viewports.
+ *
+ * Desktop keeps its authored FOV (the tight lens / die / cell macro was tuned
+ * against a 3:2 frame), but a portrait phone is ~half as wide: at the same FOV
+ * the camera module and battery physically overrun the horizontal frame. When
+ * the aspect drops below 0.8 this widens the lens just enough that the subject
+ * half-width sits inside a comfortable horizontal margin - the module reads
+ * huge and fully in frame instead of clipped, and the composer is explicit
+ * about which subject each window protects.
+ *
+ * Regions are side-by-side in progress, so at most one fires per sample.
+ */
+const MACRO_REGIONS: ReadonlyArray<{ start: number; end: number; half: number }> = [
+  // Chip macro: the A1 Ultra package (0.011) plus a little board context.
+  { start: 0.39, end: 0.47, half: 0.009 },
+  // Camera macro: the island (0.036) plus the optical spread during the
+  // explode, so no element ever leaves the frame.
+  { start: 0.62, end: 0.72, half: 0.026 },
+  // Battery climax: the cell reads edge-on, protect its half width too.
+  { start: 0.895, end: 0.925, half: 0.017 },
+]
+
+/** Minimum vertical FOV (degrees) that keeps a macro subject fully framed. */
+export function macroFloorFov(p: number, distance: number, aspect: number): number {
+  for (const region of MACRO_REGIONS) {
+    if (p >= region.start && p <= region.end) {
+      const denom = distance * Math.max(aspect, 0.35) * 0.8
+      if (denom <= 0) return 0
+      return Math.min(85, (2 * Math.atan(region.half / denom) * 180) / Math.PI)
+    }
+  }
+  return 0
+}

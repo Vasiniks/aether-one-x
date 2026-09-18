@@ -6,7 +6,9 @@ import { useChapter } from './useChapter'
 import { CHAPTERS, type ChapterCopy } from './chapters'
 import {
   DisplayBar,
+  EditorialFlank,
   EditorialStat,
+  HierarchyStat,
   NoteLine,
   RevealWindow,
   TierSeries,
@@ -40,13 +42,13 @@ const WRAP: Record<ActId, string> = {
   rebuild:
     'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-center px-5 text-center',
   camera:
-    'absolute top-[15%] right-5 left-5 flex flex-col items-start px-1 sm:left-8 lg:left-[44vw] lg:right-16',
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:bottom-auto lg:top-[16%] lg:left-14 lg:right-[38vw] lg:px-0',
   display:
     'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-center px-4 text-center',
   storage:
     'absolute inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-[42vw] lg:right-20',
   battery:
-    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:right-8 lg:left-20 lg:right-[43vw]',
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:right-8 lg:left-[42vw] lg:right-20',
   software:
     'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-16',
   ai: 'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-[44vw] lg:right-16',
@@ -141,6 +143,29 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
         />
       </motion.div>
 
+      {/* X-ray internals readout: follows the phone's screen position */}
+      <div className="spec-attach hidden lg:block">
+        <AnimatePresence>
+          {act.id === 'xray' ? (
+            <motion.div
+              key="xray-readout"
+              initial={reduce ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? undefined : { opacity: 0, y: -8 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+            >
+              <RevealWindow local={local} from={0.62} to={0.72}>
+                <XRayRead
+                  x={`${DIMENSIONS.widthM} m`}
+                  y={`${DIMENSIONS.heightM} m`}
+                  z={`${DIMENSIONS.thicknessMm} mm`}
+                />
+              </RevealWindow>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+
       {/* A1 Ultra spec annotations (chip act, desktop) */}
       <AnimatePresence>{act.id === 'chip' ? <ChipAnnotations key="chip" local={local} /> : null}</AnimatePresence>
 
@@ -153,7 +178,7 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -8 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="absolute inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] hidden justify-center lg:flex"
+            className="absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] hidden justify-center lg:flex"
           >
             <div className="flex items-center gap-2.5 rounded-sm border border-white/10 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.3em] text-white/50 backdrop-blur-sm">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300/80" />
@@ -253,13 +278,47 @@ function CoreCaption({
           noteFrom={r.note}
         />
       )
+    case 'flank':
+      return (
+        <EditorialFlank
+          local={local}
+          headline={copy.title}
+          headlineFrom={r.title ?? 0.1}
+          num={copy.num}
+          numFrom={r.num}
+          numUnit={copy.numUnit}
+          unitFrom={r.unit}
+          rows={copy.rows}
+          rowsFrom={r.rows}
+          note={copy.note}
+          noteFrom={r.note}
+          ruleFrom={r.rule ?? 0.24}
+        />
+      )
+    case 'hierarchy':
+      return (
+        <HierarchyStat
+          local={local}
+          headline={copy.title}
+          headlineFrom={r.title ?? 0.1}
+          num={copy.num}
+          numFrom={r.num}
+          numUnit={copy.numUnit}
+          unitFrom={r.unit}
+          rows={copy.rows}
+          rowsFrom={r.rows}
+          note={copy.note}
+          noteFrom={r.note}
+          ruleFrom={r.rule ?? 0.24}
+        />
+      )
     case 'inspect':
       return (
         <div className="flex flex-col items-start">
           <TitleLine local={local} from={r.title ?? 0.12} title={copy.title} />
           {copy.note ? <NoteLine local={local} from={r.note ?? 0.5} note={copy.note} className="mt-4" /> : null}
           {copy.extra === 'xray' ? (
-            <RevealWindow local={local} from={0.62} to={0.72} className="mt-6">
+            <RevealWindow local={local} from={0.62} to={0.72} className="mt-6 lg:hidden">
               <XRayRead
                 x={`${DIMENSIONS.widthM} m`}
                 y={`${DIMENSIONS.heightM} m`}

@@ -29,7 +29,7 @@ export function BuyDeck() {
   )
 
   return (
-    <section id="buy" className="relative border-t border-white/8 py-16 lg:py-24">
+    <section id="buy" className="relative overflow-x-clip border-t border-white/8 py-16 lg:py-24">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <Reveal>
           <p className="font-mono text-[10px] tracking-[0.3em] text-aether">POST-CREDITS / CONFIGURE</p>
