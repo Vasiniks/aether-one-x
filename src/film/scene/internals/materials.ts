@@ -11,6 +11,9 @@ import * as THREE from 'three'
 function transparentMaterial(base: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
   base.transparent = true
   base.depthWrite = false
+  // Internals sit between the rear shell (tier 1) and the front frame
+  // (tier 3) in the transparent pass; see FilmDirector render-order notes.
+  ;(base as unknown as { renderOrder: number }).renderOrder = 2
   return base
 }
 
@@ -333,6 +336,7 @@ export function createInternalsMaterials() {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
+  ;(trace as unknown as { renderOrder: number }).renderOrder = 5
   return {
     pcb,
     pcbFace,

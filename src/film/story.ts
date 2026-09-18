@@ -42,9 +42,9 @@ export const ACTS: ActDef[] = [
   { id: 'display', start: 0.72, end: 0.84, align: 'center' },
   { id: 'storage', start: 0.84, end: 0.89, align: 'right' },
   { id: 'battery', start: 0.89, end: 0.93, align: 'left' },
-  { id: 'software', start: 0.93, end: 0.955, align: 'center' },
-  { id: 'ai', start: 0.955, end: 0.968, align: 'right' },
-  { id: 'final', start: 0.968, end: 1, align: 'center' },
+  { id: 'software', start: 0.93, end: 0.95, align: 'center' },
+  { id: 'ai', start: 0.95, end: 0.975, align: 'right' },
+  { id: 'final', start: 0.975, end: 1, align: 'center' },
 ]
 
 export interface FilmKey {
@@ -152,9 +152,11 @@ export const KEYS: FilmKey[] = [
   KS(0.93, -0.02, 0, 0, 1.28, 0, 0, 0, 0, 0.55, 0, 0, 0, 26, 0.62),
 
   // -- INTELLIGENCE: phone holds right --
+  KS(0.95, -0.12, 0.28, 0, 1.14, -0.1, 0.01, 0.26, 0.01, 0.66, -0.03, 0, 0, 21, 0.56),
   KS(0.955, -0.12, 0.28, 0, 1.14, -0.1, 0.01, 0.26, 0.01, 0.66, -0.03, 0, 0, 21, 0.56),
 
   // -- FINAL: return to the center, best lighting, three-quarter hero --
+  KS(0.975, -0.28, 0.42, 0, 1.34, 0, 0.02, 0, 0.02, 0.6, 0, 0, 0, 22, 0.6),
   KS(0.98, -0.28, 0.42, 0, 1.34, 0, 0.02, 0, 0.02, 0.6, 0, 0, 0, 22, 0.6),
   KS(1, -0.26, 0.4, 0, 1.36, 0, 0.02, 0, 0.02, 0.58, 0, 0, 0, 22, 0.62),
 ]

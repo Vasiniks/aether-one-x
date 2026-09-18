@@ -3,6 +3,7 @@ import { CtaBand } from '../components/layout/CtaBand'
 import { PageHero } from '../components/layout/PageHero'
 import { Reveal } from '../components/ui/Reveal'
 import { SoCPanel } from '../components/SoC/SoCPanel'
+import { PERFORMANCE } from '../data/product'
 
 const PhoneViewer = lazy(() => import('../components/PhoneViewer/PhoneViewer').then((m) => ({ default: m.PhoneViewer })))
 
@@ -10,7 +11,7 @@ const META = [
   { k: 'Process node', v: '3 nm' },
   { k: 'CPU cores', v: '8' },
   { k: 'GPU cores', v: '14' },
-  { k: 'Neural engine', v: '46 TOPS' },
+  { k: 'Neural engine', v: `${PERFORMANCE.npu.hero.value} TOPS` },
 ]
 
 /** Performance product page: the full die, then the phone it powers. */

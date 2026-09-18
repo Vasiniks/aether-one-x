@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useScroll } from 'motion/react'
 import WebGL from 'three/examples/jsm/capabilities/WebGL.js'
 import { PhoneFrame } from '../components/Phone/PhoneFrame'
@@ -12,14 +12,25 @@ const FilmScene = lazy(() => import('./scene/FilmScene').then((m) => ({ default:
  * The Aether One X film: one very long scroll sequence whose sticky stage is
  * driven by a single master progress value. The 3D scene and the editorial
  * overlay both read that value, so the whole page behaves like one shot.
+ * The Canvas only renders while the stage is inside the viewport, so an
+ * already-watched film stops paying the WebGL tax.
  */
 export function Film() {
   const ref = useRef<HTMLDivElement>(null)
   const webgl = useMemo(() => WebGL.isWebGL2Available(), [])
+  const [playing, setPlaying] = useState(true)
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end end'],
   })
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !webgl) return
+    const io = new IntersectionObserver(([entry]) => setPlaying(entry.isIntersecting), { threshold: 0.02 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [webgl])
 
   return (
     <section
@@ -28,12 +39,12 @@ export function Film() {
       className="relative"
       style={{ height: 'var(--film-height)' }}
     >
-      <div className="sticky top-0 h-[100dvh] overflow-hidden">
+      <div className="sticky top-0 h-[100svh] overflow-hidden">
         {/* The phone, shot in real time. */}
         <div className="absolute inset-0">
           {webgl ? (
             <Suspense fallback={<FilmFallback />}>
-              <FilmScene progress={scrollYProgress} />
+              <FilmScene progress={scrollYProgress} playing={playing} />
             </Suspense>
           ) : (
             <FilmFallback />

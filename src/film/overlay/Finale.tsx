@@ -25,7 +25,7 @@ export function Finale({ local }: { local: MotionValue<number> }) {
   }
 
   return (
-    <div className="absolute inset-x-0 bottom-16 flex flex-col items-center px-4 text-center">
+    <div className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col items-center px-4 text-center">
       <RevealWindow local={local} from={0.05} to={0.16}>
         <p className="font-mono text-[9px] tracking-[0.34em] text-aether">FINAL FRAME</p>
       </RevealWindow>
@@ -49,7 +49,7 @@ export function Finale({ local }: { local: MotionValue<number> }) {
                 onClick={() => setFinish(f.id)}
                 aria-pressed={finish === f.id}
                 aria-label={`Finish: ${f.name}`}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] tracking-[0.18em] transition-colors ${
+                className={`flex items-center gap-2 rounded-full border px-3.5 py-3 text-[10px] tracking-[0.18em] transition-colors ${
                   finish === f.id
                     ? 'border-white/35 bg-white/10 text-ink'
                     : 'border-white/12 bg-transparent text-dim hover:border-white/25'
@@ -74,7 +74,7 @@ export function Finale({ local }: { local: MotionValue<number> }) {
                 type="button"
                 onClick={() => bumpStorage(s.gb)}
                 aria-pressed={storageGb === s.gb}
-                className={`rounded-full border px-3.5 py-1.5 font-mono text-[10px] tracking-[0.18em] transition-colors ${
+                className={`rounded-full border px-4 py-3 font-mono text-[10px] tracking-[0.18em] transition-colors ${
                   storageGb === s.gb
                     ? 'border-aether/60 bg-aether/15 text-sky-100'
                     : 'border-white/12 text-dim hover:border-white/25'

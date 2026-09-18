@@ -161,7 +161,7 @@ export function SoCDie({ activeKey }: { activeKey: SoCUnit['key'] }) {
 
         <div className="grid grid-cols-3 gap-2.5">
           <div className="col-span-2 rounded-xl border border-white/10 bg-black/30 p-3">
-            <p className="mb-2.5 font-mono text-[10px] tracking-[0.18em] text-faint">NPU · 46 TOPS</p>
+            <p className="mb-2.5 font-mono text-[10px] tracking-[0.18em] text-faint">NPU · {PERFORMANCE.npu.hero.value} TOPS</p>
             <div className="flex h-[34px] items-center gap-2">
               <div className={cn('h-full flex-1 rounded-md', accent, 'opacity-70')} style={{ animation: 'core-pulse 2.8s ease-in-out infinite' }} />
               <div className={cn('h-full flex-1 rounded-md', accent, 'opacity-50')} style={{ animation: 'core-pulse 2.8s ease-in-out infinite', animationDelay: '0.4s' }} />

@@ -103,13 +103,13 @@
 .spec-num {
   font-family: var(--font-display);
   font-weight: 500;
-  font-variant-numeric: lining-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.025em;
   line-height: 0.84;
 }
 
 .spec-num--gradient {
-  background: linear-gradient(180deg, #ffffff 8%, rgba(150, 178, 255, 0.9) 68%, rgba(150, 178, 255, 0.28) 100%);
+  background: linear-gradient(180deg, #ffffff 8%, rgba(150, 178, 255, 0.9) 68%, rgba(150, 178, 255, 0.55) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

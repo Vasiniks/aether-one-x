@@ -33,7 +33,15 @@ const SHELL_MATS = [
   'simTray',
   'port',
   'speaker',
+  'button',
+  'logo',
+  'focusRing',
 ] as const
+
+// The bezel + edge hardware group sits between the camera and the die during
+// the macro dive; it dials out harder than the rear shell so the ring can
+// never paint over nearer internals in the transparent pass.
+const FRAME_MATS = ['frame', 'button', 'simTray', 'port', 'speaker', 'antenna'] as const
 
 const ENV_MATS = ['frame', 'back', 'island', 'flashRing'] as const
 
@@ -43,20 +51,22 @@ const BACK_LIFT = 0.0036
 
 const SCRATCH: {
   look: THREE.Vector3
-  targetFov: number
   screenTick: number
   screenMode: ScreenMode
   envInt: number
+  lastGhost: boolean
   lastShellGhost: number
   lastEnvInt: number
+  lastFrameGhost: number
 } = {
   look: new THREE.Vector3(),
-  targetFov: 18,
   screenTick: 0,
   screenMode: 'off',
   envInt: 0.9,
+  lastGhost: false,
   lastShellGhost: -1,
   lastEnvInt: -1,
+  lastFrameGhost: -1,
 }
 
 const _ray = new THREE.Raycaster()
@@ -99,48 +109,20 @@ export function FilmDirector({
     const d = REDUCED ? 1 : 1 - Math.exp(-delta * 7)
     const g = heroRef.current
 
-    // Responsive framing: hero keys carry a `fit` (share of viewport height);
-    // detail keys fall back to their authored macro fov. Both damp slightly so
-    // resizes and transitions feel continuous instead of steppy.
-    let targetFov = t.fov
-    if (t.fit != null) {
-      const aspect = state.size.width / state.size.height
-      const poseRx = g ? g.rotation.x : t.rx
-      const poseRy = g ? g.rotation.y : t.ry
-      const poseScale = g ? g.scale.x : t.scale
-      const distance = cam.position.distanceTo(SCRATCH.look)
-      targetFov = fitFov({
-        fit: t.fit,
-        distance,
-        aspect,
-        scale: poseScale,
-        rx: poseRx,
-        ry: poseRy,
-        horizontalMargin: 0.86,
-        maxFov: t.fovMax,
-      })
+    const aspect = state.size.width / state.size.height
+    const bx = centerBias(aspect, 'x')
+    const by = centerBias(aspect, 'y')
+    // Read the off-center offset once; never mutate the shared sample buffer.
+    const px = t.fit != null ? t.px * bx : t.px
+    const py = t.fit != null ? t.py * by : t.py
 
-      // Pull off-center compositions back toward center as the frame narrows.
-      const bx = centerBias(aspect, 'x')
-      const by = centerBias(aspect, 'y')
-      t.px *= bx
-      t.py *= by
-    }
-
-    // Pose and FOV share one feel: slow weight on big moves, no overshoot.
-    if (Math.abs(SCRATCH.targetFov - targetFov) > 0.001) {
-      SCRATCH.targetFov += (targetFov - SCRATCH.targetFov) * (REDUCED ? 1 : 1 - Math.exp(-delta * 9))
-    }
-    if (Math.abs(cam.fov - SCRATCH.targetFov) > 0.01) {
-      cam.fov = SCRATCH.targetFov
-      cam.updateProjectionMatrix()
-    }
-
+    // Pose is written before framing so the responsive fit reads the live
+    // (damped) silhouette and can never lag the group it is framing.
     if (g) {
       if (REDUCED) {
         g.rotation.set(t.rx, t.ry, t.rz)
         g.scale.setScalar(t.scale)
-        g.position.set(t.px, t.py, 0)
+        g.position.set(px, py, 0)
       } else {
         g.rotation.x += (t.rx - g.rotation.x) * d
         g.rotation.y += (t.ry - g.rotation.y) * d
@@ -148,27 +130,79 @@ export function FilmDirector({
         g.scale.x += (t.scale - g.scale.x) * d
         g.scale.y += (t.scale - g.scale.y) * d
         g.scale.z += (t.scale - g.scale.z) * d
-        g.position.x += (t.px - g.position.x) * d
-        g.position.y += (t.py - g.position.y) * d
+        g.position.x += (px - g.position.x) * d
+        g.position.y += (py - g.position.y) * d
       }
+    }
+
+    // Responsive framing: hero keys carry a `fit` (share of viewport height);
+    // detail keys fall back to their authored macro fov. The operative fit
+    // value doubles as the blend weight, so fit↔roll boundaries ease toward
+    // the authored lens instead of snapping through a degenerate divide.
+    let targetFov = t.fov
+    if (t.fit != null) {
+      const poseRx = g ? g.rotation.x : t.rx
+      const poseRy = g ? g.rotation.y : t.ry
+      const poseScale = g ? g.scale.x : t.scale
+      const distance = cam.position.distanceTo(SCRATCH.look)
+      const fitValue = fitFov({
+        fit: t.fit,
+        distance,
+        aspect,
+        scale: poseScale,
+        rx: poseRx,
+        ry: poseRy,
+        px: g ? g.position.x : px,
+        horizontalMargin: 0.86,
+        maxFov: t.fovMax,
+      })
+      const w = Math.min(1, Math.max(0, t.fit))
+      targetFov = Math.min(t.fovMax, t.fov + (fitValue - t.fov) * w)
+    }
+
+    // Pose and FOV share one damp: slow weight on big moves, no overshoot.
+    if (REDUCED) {
+      if (Math.abs(cam.fov - targetFov) > 0.001) {
+        cam.fov = targetFov
+        cam.updateProjectionMatrix()
+      }
+    } else if (Math.abs(cam.fov - targetFov) > 0.01) {
+      cam.fov += (targetFov - cam.fov) * (1 - Math.exp(-delta * 7))
+      cam.updateProjectionMatrix()
     }
 
     // X-ray dissolve: the outer shell + edge hardware fades together as the
     // internals take over; the front glass stays and merely dims so a ghosted
-    // outline still owns the silhouette.
+    // outline still owns the silhouette. Shell materials are permanently
+    // transparent; the shell only toggles depthWrite (occluder when solid,
+    // see-through when ghost) so the pass never needs a shader recompile.
     const ghost = s.shellGhost > 0.01
-    if (ghost !== FILM_MATERIALS.frame.transparent) {
+    if (ghost !== SCRATCH.lastGhost) {
+      SCRATCH.lastGhost = ghost
       for (const name of SHELL_MATS) {
         const mat = FILM_MATERIALS[name]
-        mat.transparent = ghost
-        if (ghost) mat.opacity = Math.max(0.02, 1 - s.shellGhost * 0.9)
-        else mat.opacity = 1
+        mat.depthWrite = !ghost
+        mat.opacity = ghost ? Math.max(0.02, 1 - s.shellGhost * 0.9) : 1
       }
       SCRATCH.lastShellGhost = ghost ? s.shellGhost : -1
     } else if (ghost && Math.abs(s.shellGhost - SCRATCH.lastShellGhost) > 0.004) {
       SCRATCH.lastShellGhost = s.shellGhost
       for (const name of SHELL_MATS) {
         FILM_MATERIALS[name].opacity = Math.max(0.02, 1 - s.shellGhost * 0.9)
+      }
+    }
+
+    // The bezel + edge hardware dials out harder during the macro dive (camera
+    // inside the cavity, between the ring and the die) so the titanium ring can
+    // never blend over nearer internals in the transparent pass. The rear shell
+    // + ghost line still carry the silhouette.
+    if (ghost) {
+      const frameAlpha = Math.max(0.02, 1 - s.shellGhost * 0.9 - s.chipFocus * 0.8)
+      if (Math.abs(frameAlpha - SCRATCH.lastFrameGhost) > 0.004) {
+        SCRATCH.lastFrameGhost = frameAlpha
+        for (const name of FRAME_MATS) {
+          FILM_MATERIALS[name].opacity = frameAlpha
+        }
       }
     }
 
@@ -211,18 +245,23 @@ export function FilmDirector({
       }
     }
 
-    // Internals control plane.
+    // Internals control plane. The battery window separates only the cell, so
+    // the 0.9 climax does not shake the whole stack.
     const c = internals.current
     if (c) {
       c.opacity = s.internalOpacity
-      c.explode = s.explode
+      c.explode = s.explodeXray
+      c.explodeBatt = s.explodeBatt
       c.chipFocus = s.chipFocus
       c.energy = s.energy
     }
 
-    // Hover inspection: only during the x-ray / rebuild pass on desktop.
-    const pickActive =
-      XRAY_ACTS.has(act) && state.size.width >= 768 && !REDUCED && hoverPointer.fine
+    // Hover inspection: only during the x-ray / rebuild pass. Fine pointers
+    // inspect continuously; coarse pointers (phones/tablets) still can tap the
+    // internals and see the same tooltip for a beat. The window is short so a
+    // finger-led scroll never reads as a pick.
+    const tapActive = performance.now() - hoverPointer.lastTap < 350
+    const pickActive = XRAY_ACTS.has(act) && !REDUCED && (hoverPointer.fine || tapActive)
     setXrayActive(pickActive)
     if (pickActive && internalsGroup.current && hoverPointer.dirty) {
       hoverPointer.dirty = false

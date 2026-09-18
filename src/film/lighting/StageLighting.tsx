@@ -1,4 +1,4 @@
-import { ContactShadows, Environment } from '@react-three/drei'
+import { ContactShadows, Environment, Lightformer } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
@@ -12,59 +12,18 @@ import { DEFAULT_STAGE, STAGE_LIGHTING, type StageLightState } from './light-sta
  * current act's design; the background is a soft vertical gradient that shifts
  * with the story. The phone is the bright object on a dark stage.
  *
- * The environment is painted like a photo studio rather than a sky: one soft
- * key panel, a long specular strip for the machined edges, and a faint cool
- * fill bounce. That is what gives the metal its "baked in the studio" read.
+ * The environment is a coherent studio: one soft key panel, a long specular
+ * strip for the machined edges, and a faint cool fill bounce. That is what
+ * gives the metal its "baked in the studio" read, and since it is built from
+ * actual Lightformers the reflections stay mathematically consistent with the
+ * directional rig that lights the scene.
  */
 
-const ENV_SPHERE_TEX = (() => {
-  const c = document.createElement('canvas')
-  c.width = c.height = 256
-  const g = c.getContext('2d')!
-  const w = c.width
-  const h = c.height
-
-  // Deep stage base with a faint horizon seam.
-  const base = g.createLinearGradient(0, 0, 0, h)
-  base.addColorStop(0, '#070b14')
-  base.addColorStop(0.72, '#05070d')
-  base.addColorStop(1, '#0a0f1c')
-  g.fillStyle = base
-  g.fillRect(0, 0, w, h)
-
-  // Soft key panel, upper right: the hero reflection on the titanium edge.
-  let panel = g.createRadialGradient((w * 0.72), h * 0.26, 4, w * 0.72, h * 0.26, w * 0.18)
-  panel.addColorStop(0, 'rgba(236,241,250,0.95)')
-  panel.addColorStop(0.55, 'rgba(158,178,216,0.5)')
-  panel.addColorStop(1, 'rgba(120,145,200,0)')
-  g.fillStyle = panel
-  g.fillRect(0, 0, w, h)
-
-  // Long narrow specular strip, upper left: one continuous edge light.
-  for (let i = 0; i < 5; i++) {
-    g.fillStyle = `rgba(250,253,255,${0.28 - i * 0.045})`
-    g.fillRect(w * 0.1 + i, h * 0.24, w * 0.085, h * 0.015)
-  }
-
-  // Cool fill bounce, lower left: rounds the dark ceramic without lifting it.
-  panel = g.createRadialGradient(w * 0.18, h * 0.78, 3, w * 0.18, h * 0.78, w * 0.16)
-  panel.addColorStop(0, 'rgba(140,164,214,0.32)')
-  panel.addColorStop(1, 'rgba(140,164,214,0)')
-  g.fillStyle = panel
-  g.fillRect(0, 0, w, h)
-
-  // Tiny cool glint lower right (the far rim catching the fill).
-  panel = g.createRadialGradient(w * 0.88, h * 0.66, 2, w * 0.88, h * 0.66, w * 0.07)
-  panel.addColorStop(0, 'rgba(180,196,234,0.22)')
-  panel.addColorStop(1, 'rgba(180,196,234,0)')
-  g.fillStyle = panel
-  g.fillRect(0, 0, w, h)
-
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
-  return tex
-})()
+const KEY_ELEVATION = 38 // degrees from horizon; high key keeps faces open.
+const ENV_KEY_INTENSITY = 1.15
+const ENV_STRIP_INTENSITY = 0.85
+const ENV_FILL_INTENSITY = 0.5
+const ENV_RIM_INTENSITY = 0.55
 
 /** 1x128 vertical gradient painted whenever the act's palette changes. */
 function makeBackground(top: string, base: string): THREE.CanvasTexture {
@@ -94,6 +53,8 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
   const key = useRef<THREE.DirectionalLight>(null)
   const fill = useRef<THREE.DirectionalLight>(null)
   const rim = useRef<THREE.DirectionalLight>(null)
+  const rimR = useRef<THREE.DirectionalLight>(null)
+  const under = useRef<THREE.DirectionalLight>(null)
   const accent = useRef<THREE.PointLight>(null)
   const interior = useRef<THREE.PointLight>(null)
   const ambient = useRef<THREE.AmbientLight>(null)
@@ -101,18 +62,31 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
   const paletteKey = useRef('')
   const accPos = useRef(new THREE.Vector3(0, 0.1, 0.4))
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const act = actAt(progress.get()).id
     const target: StageLightState = STAGE_LIGHTING[act] ?? DEFAULT_STAGE
     const d = 1 - Math.exp(-delta * 5)
 
     if (ambient.current) {
-      ambient.current.intensity += (0.1 + target.envIntensity * 0.05 - ambient.current.intensity) * d
+      ambient.current.intensity += (0.08 + target.envIntensity * 0.04 - ambient.current.intensity) * d
     }
     if (key.current) key.current.intensity += (target.key - key.current.intensity) * d
     if (fill.current) fill.current.intensity += (target.fill - fill.current.intensity) * d
     if (rim.current) rim.current.intensity += (target.rim - rim.current.intensity) * d
+
+    // Counter-key from the right so the far edge keeps a hairline of light even
+    // in tall, narrow stages; the under-bounce stops shadows from swallowing
+    // the bottom of the device during the hardware acts.
+    if (rimR.current) rimR.current.intensity += (target.rim * 0.32 - rimR.current.intensity) * d
+    if (under.current) under.current.intensity += (target.fill * 0.3 - under.current.intensity) * d
+
     if (interior.current) interior.current.intensity += (target.interiorGlow - interior.current.intensity) * d
+
+    // IBL response per act (the "environment" channel): metal reflections
+    // follow the story (thin and cool during the x-ray, hot during the chip)
+    // instead of staying pinned at full studio brightness.
+    const env = state.scene as THREE.Scene & { environmentIntensity: number }
+    env.environmentIntensity += (target.envIntensity - env.environmentIntensity) * d
 
     // Accent parks on the subject of the act and drifts, rather than snapping.
     if (accent.current) {
@@ -133,21 +107,28 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
     }
   })
 
+  // High, slightly pulled key so the hero planes stay open and the machined
+  // rails catch a long specular: `KEY_ELEVATION` off the horizon.
+  const keyY = Math.tan((KEY_ELEVATION * Math.PI) / 180) * 2.8
+
   return (
     <>
       <BackgroundSphere bgMat={bgMat} initial={makeBackground(DEFAULT_STAGE.topColor, DEFAULT_STAGE.baseColor)} />
       <ambientLight ref={ambient} intensity={0.22} />
-      <directionalLight ref={key} position={[2.1, 1.5, 2.8]} intensity={1.1} color="#eef3ff" />
+      <directionalLight ref={key} position={[2.1, keyY, 2.8]} intensity={1.1} color="#eef3ff" />
       <directionalLight ref={fill} position={[-3, 0.5, 1.4]} intensity={0.45} color="#9db4dd" />
       <directionalLight ref={rim} position={[-2.6, 1.1, -2.1]} intensity={1.4} color="#dfe8ff" />
+      <directionalLight ref={rimR} position={[2.6, 0.3, -1.9]} intensity={0.45} color="#dce7ff" />
+      <directionalLight ref={under} position={[0.4, -0.6, 1.2]} intensity={0.16} color="#8aa3d0" />
       <pointLight ref={accent} position={[0, 0.1, 0.4]} intensity={0.2} distance={1.6} decay={2} color="#7fb0ff" />
       <pointLight ref={interior} position={[0, 0, 0]} intensity={0} distance={1.4} decay={2} color="#7fb4ff" />
-      <ContactShadows position={[0, -0.22, 0]} opacity={0.5} scale={6} blur={3.4} far={0.5} resolution={256} frames={30} />
+      <ContactShadows position={[0, -0.08, 0]} opacity={0.45} scale={5} blur={3.2} far={0.5} resolution={512} frames={90} />
       <Environment frames={1} resolution={256}>
-        <mesh>
-          <sphereGeometry args={[6, 32, 32]} />
-          <meshBasicMaterial map={ENV_SPHERE_TEX} side={THREE.BackSide} />
-        </mesh>
+        <Lightformer intensity={ENV_KEY_INTENSITY} position={[0, 3.4, 5]} scale={[10, 4, 1]} rotation-x={-Math.PI / 5} form="rect" color="#f0f5ff" />
+        <Lightformer intensity={ENV_STRIP_INTENSITY} position={[-4.5, 1.4, 2.5]} scale={[3.4, 8, 1]} rotation-y={Math.PI / 4} form="rect" color="#dcecff" />
+        <Lightformer intensity={ENV_FILL_INTENSITY} position={[5, -0.4, 1.8]} scale={[4, 5, 1]} rotation-y={-Math.PI / 2} form="rect" color="#9fb6df" />
+        <Lightformer intensity={0.4} position={[0, -3.6, 2]} scale={[8, 2, 1]} rotation-x={-Math.PI / 2} color="#e9f2ff" />
+        <Lightformer intensity={ENV_RIM_INTENSITY} position={[0, 2.4, -4]} scale={[8, 3, 1]} form="rect" color="#ffffff" />
       </Environment>
     </>
   )

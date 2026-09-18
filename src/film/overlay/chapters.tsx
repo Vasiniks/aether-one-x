@@ -1,5 +1,8 @@
 import type { ActId } from '../story'
 import type { SpecLine } from './primitives'
+import { BATTERY, PERFORMANCE } from '../../data/product'
+
+const TOPS = String(PERFORMANCE.npu.hero.value)
 
 export interface RevealPlan {
   /** Act-local progress (0..1) at which each block starts to appear. */
@@ -61,14 +64,14 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
   chip: {
     label: 'SILICON',
     title: 'A1 Ultra.',
-    note: '30 trillion ops at near no wattage.',
+    note: `${TOPS} trillion ops at near no wattage.`,
     num: 'A1',
     unit: 'AETHER A1 ULTRA',
     tech: [
       { k: 'PROCESS', v: '3 NM' },
       { k: 'CPU', v: '8 CORE' },
       { k: 'GPU', v: '14 CORE' },
-      { k: 'NPU', v: '25 TOPS' },
+      { k: 'NPU', v: `${TOPS} TOPS` },
     ],
     reveal: { num: 0.5, unit: 0.62, tech: 0.78, note: 0.78 },
   },
@@ -121,7 +124,7 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
     label: 'POWER',
     title: 'Power that lasts.',
     note: '5200 mAh. All day. Recharged in minutes.',
-    num: '30',
+    num: String(BATTERY.charge50Min),
     unit: 'MIN TO 50%',
     tech: [
       { k: 'WIRED', v: '100 W' },
@@ -140,7 +143,7 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
     label: 'INTELLIGENCE',
     title: 'On-device smarts.',
     note: 'Private. Local. No cloud required.',
-    num: '25',
+    num: TOPS,
     unit: 'TOPS NPU',
     reveal: { title: 0.1, num: 0.28, unit: 0.4, note: 0.55 },
   },

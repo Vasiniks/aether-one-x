@@ -31,11 +31,26 @@ const PICK_TARGETS: Record<string, { label: string; detail: string }> = {
 
 const XRAY_EVENT = 'aether:xtip'
 
+const TAP_SLOP = 10
+const TAP_WINDOW = 500
+
 /** NDC pointer read by the director; updated outside React via a DOM listener. */
-export const hoverPointer: { ndc: THREE.Vector2; dirty: boolean; fine: boolean } = {
+export const hoverPointer: {
+  ndc: THREE.Vector2
+  dirty: boolean
+  fine: boolean
+  lastTap: number
+  downX: number
+  downY: number
+  downTime: number
+} = {
   ndc: new THREE.Vector2(0, 0),
   dirty: true,
   fine: true,
+  lastTap: 0,
+  downX: 0,
+  downY: 0,
+  downTime: 0,
 }
 
 let active = false
@@ -64,9 +79,8 @@ function pickTarget(obj: THREE.Object3D): Picked | null {
   while (node) {
     if (typeof node.name === 'string' && PICK_TARGETS[node.name]) {
       const meta = PICK_TARGETS[node.name]
-      const world = new THREE.Vector3()
-      node.getWorldPosition(world)
-      return { name: node.name, ...meta, position: world }
+      node.getWorldPosition(_world)
+      return { name: node.name, ...meta, position: _world }
     }
     node = node.parent
   }
@@ -75,6 +89,20 @@ function pickTarget(obj: THREE.Object3D): Picked | null {
 
 const _tip = new THREE.Vector3()
 const _v = new THREE.Vector3()
+const _world = new THREE.Vector3()
+
+/** Left/right/top/bottom safe-area insets (0 on desktop). */
+function safeInsets(): { left: number; right: number; top: number; bottom: number } {
+  const el = typeof document !== 'undefined' ? document.documentElement : null
+  const cs = el ? getComputedStyle(el) : null
+  const n = (v: string) => parseFloat(v) || 0
+  return {
+    left: cs ? n(cs.getPropertyValue('env(safe-area-inset-left)')) : 0,
+    right: cs ? n(cs.getPropertyValue('env(safe-area-inset-right)')) : 0,
+    top: cs ? n(cs.getPropertyValue('env(safe-area-inset-top)')) : 0,
+    bottom: cs ? n(cs.getPropertyValue('env(safe-area-inset-bottom)')) : 0,
+  }
+}
 
 /**
  * Raycasts the internals root and publishes the closest pick. Pass `null` as
@@ -113,8 +141,17 @@ export function updatePick(
 
   _tip.copy(picked.position).project(camera)
   _v.set(0.5 + _tip.x * 0.5, 0.5 - _tip.y * 0.5, 0)
-  const x = Math.min(0.93, Math.max(0.07, _v.x))
-  const y = Math.min(0.92, Math.max(0.08, _v.y))
+  // Keep the anchor out of the safe-area insets (notch / home indicator) so
+  // the fixed tooltip can never slide under the device chrome in landscape.
+  const vw = window.innerWidth || 1
+  const vh = window.innerHeight || 1
+  const ins = safeInsets()
+  const xMin = (0.07 * vw + ins.left) / vw
+  const xMax = (0.93 * vw - ins.right) / vw
+  const yMin = (0.08 * vh + ins.top) / vh
+  const yMax = (0.92 * vh - ins.bottom) / vh
+  const x = Math.min(Math.max(xMax, xMin), Math.max(xMin, Math.min(xMax, _v.x)))
+  const y = Math.min(Math.max(yMax, yMin), Math.max(yMin, Math.min(yMax, _v.y)))
   const key = `${picked.label}|${picked.detail}|${x.toFixed(3)}|${y.toFixed(3)}`
   if (key !== lastKey) {
     lastKey = key
@@ -123,12 +160,39 @@ export function updatePick(
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('pointermove', (e) => {
+  const sync = (e: PointerEvent) => {
     hoverPointer.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1)
     hoverPointer.dirty = true
+  }
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') sync(e)
+  })
+  // Coarse pointers (phones / tablets) have no hover: a pick is armed only when
+  // the gesture looks like a tap (short press, inside a slop box), so a finger
+  // picking the skin while scrolling never fires a spurious tooltip.
+  window.addEventListener('pointerdown', (e) => {
+    hoverPointer.downX = e.clientX
+    hoverPointer.downY = e.clientY
+    hoverPointer.downTime = performance.now()
+  })
+  window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse') return
+    const dx = e.clientX - hoverPointer.downX
+    const dy = e.clientY - hoverPointer.downY
+    const dt = performance.now() - hoverPointer.downTime
+    if (Math.hypot(dx, dy) < TAP_SLOP && dt < TAP_WINDOW) {
+      sync(e)
+      hoverPointer.lastTap = performance.now()
+    }
+  })
+  window.addEventListener('pointercancel', () => {
+    hoverPointer.lastTap = 0
   })
   try {
-    hoverPointer.fine = window.matchMedia('(pointer: fine)').matches
+    // Touchscreen laptops report both `pointer: fine` and maxTouchPoints > 0;
+    // without the second gate a finger-drag would look like a sustained hover.
+    hoverPointer.fine =
+      window.matchMedia('(pointer: fine)').matches && navigator.maxTouchPoints === 0
   } catch {
     hoverPointer.fine = true
   }

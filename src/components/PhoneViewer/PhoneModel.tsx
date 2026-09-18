@@ -31,10 +31,20 @@ const BACK_PANEL = { depth: 0.0028, z: -0.0025 }
 const FRONT_GLASS = { depth: 0.0015, z: 0.003 }
 const DISPLAY_PANEL = { depth: 0.0011, z: 0.00215 }
 
-/** Raised rear camera plate. */
+/**
+ * Front frame split: a solid rear body (machined cavity) plus a perimeter
+ * bezel ring with a display opening, so the front glass / display are never
+ * buried behind an opaque slab face.
+ */
+const FRAME_BODY_DEPTH = 0.0042
+const FRAME_BODY_Z = -0.0018
+const RING_BASE_Z = 0.0004
+const RING_DEPTH = 0.0035
+
+/** Raised rear camera plate, seated so it reads ~1mm proud of the ceramic. */
 const ISLAND = { size: 0.036, x: -0.023, y: 0.05, depth: 0.0018 }
-const ISLAND_FACE_Z = BACK_FACE - 0.00005 - ISLAND.depth
-const LENS_Z = ISLAND_FACE_Z
+const ISLAND_FACE_Z = -0.0028
+const LENS_Z = -0.0046
 
 /** Flash LED, tucked to the right of the island against the ceramic. */
 const FLASH = { x: -0.005, y: 0.0665, radius: 0.0026 }
@@ -66,6 +76,12 @@ interface PhoneModelProps {
    * layers for an exploded view. Defaults to unused refs: zero behavior change.
    */
   groups?: Partial<Record<'frame' | 'back' | 'glass', MutableRefObject<THREE.Group | null>>>
+  /**
+   * Animated focus ring on the active lens. Defaults true; the film drives the
+   * material set directly (x-ray dissolve) and passes false so no per-frame
+   * writer fights the director's opacity gate.
+   */
+  animateFocusRing?: boolean
 }
 
 /** A self-owned default material set with a static display texture. */
@@ -76,7 +92,7 @@ function createDefaultMaterials(): PhoneMaterialSet {
   return set
 }
 
-export function PhoneModel({ materials, groups }: PhoneModelProps) {
+export function PhoneModel({ materials, groups, animateFocusRing = true }: PhoneModelProps) {
   // Only mint the default material set + static textures when this instance
   // actually owns its look (the film passes a shared, pre-built set).
   const ownMaterials = useMemo(() => (materials ? null : createDefaultMaterials()), [materials])
@@ -96,6 +112,7 @@ export function PhoneModel({ materials, groups }: PhoneModelProps) {
   })
 
   const islandGeometry = useMemo(() => createSquircleGeometry(ISLAND.size, ISLAND.size, ISLAND.depth), [])
+  const frameRingGeometry = useMemo(() => createFrameRingGeometry(), [])
   const lensRefs = useRef<Partial<Record<FocusLensId, THREE.Group>>>({})
   const focusRef = useRef<{ key: FocusLensId | null; blend: number }>({ key: focusLens, blend: 0 })
 
@@ -138,7 +155,7 @@ export function PhoneModel({ materials, groups }: PhoneModelProps) {
       const scale = 1 + ((active ? 1.04 : 1) - 1) * focus.blend + pulse
       group.scale.setScalar(scale)
       const ring = group.children.find((child) => child.name === 'focus-ring') as THREE.Mesh | undefined
-      if (ring && finishSet.focusRing) {
+      if (ring && finishSet.focusRing && animateFocusRing) {
         const targetOpacity = active ? 0.55 + Math.sin(t * 3) * 0.12 : 0
         finishSet.focusRing.opacity += (targetOpacity - finishSet.focusRing.opacity) * 0.12
       }
@@ -149,9 +166,21 @@ export function PhoneModel({ materials, groups }: PhoneModelProps) {
     <group>
       {/* Titanium frame + machined edge hardware */}
       <group ref={groups?.frame}>
-        <RoundedBox args={[DIM.w, DIM.h, DIM.t]} radius={0.0035} smoothness={10} position={[0, 0, 0]} castShadow>
+        {/* Solid rear+midsection body: the machined cavity the display sits in. */}
+        <RoundedBox
+          args={[DIM.w, DIM.h, FRAME_BODY_DEPTH]}
+          radius={0.004}
+          smoothness={12}
+          position={[0, 0, FRAME_BODY_Z]}
+          castShadow
+        >
           <primitive object={set.frame} attach="material" />
         </RoundedBox>
+        {/* Perimeter bezel ring with a display opening. Segment-tight so the
+            rounded corners match the body silhouette from every angle. */}
+        <mesh geometry={frameRingGeometry} castShadow>
+          <primitive object={set.frame} attach="material" />
+        </mesh>
 
         {/* Edge hardware */}
         <EdgeDetails set={set} />
@@ -251,37 +280,37 @@ function LensAssembly({ r, materials }: { r: number; materials: ReturnType<typeo
     <>
       {/* Machined outer collar */}
       <mesh>
-        <torusGeometry args={[r, 0.0007, 12, 56]} />
+        <torusGeometry args={[r, 0.0007, 16, 72]} />
         <primitive object={materials.lensRing} attach="material" />
       </mesh>
       {/* Stepped bezel */}
       <mesh position={[0, 0, -0.00022]}>
-        <torusGeometry args={[r * 0.88, 0.0003, 8, 44]} />
+        <torusGeometry args={[r * 0.88, 0.0003, 12, 64]} />
         <primitive object={materials.lensRing} attach="material" />
       </mesh>
-      {/* Lens glass, slightly proud */}
-      <mesh position={[0, 0, -0.0003]}>
-        <circleGeometry args={[r * 0.8, 44]} />
+      {/* Lens glass, slightly proud of the plate's back face */}
+      <mesh position={[0, 0, -0.00045]} rotation={[0, Math.PI, 0]}>
+        <circleGeometry args={[r * 0.8, 72]} />
         <primitive object={materials.lensGlass} attach="material" />
       </mesh>
       {/* Inner barrel wall seen through the glass edge */}
       <mesh position={[0, 0, 0.0001]}>
-        <torusGeometry args={[r * 0.68, 0.00028, 8, 40]} />
+        <torusGeometry args={[r * 0.68, 0.00028, 12, 64]} />
         <primitive object={materials.lensBarrel} attach="material" />
       </mesh>
-      {/* Aperture */}
-      <mesh position={[0, 0, 0.0002]}>
-        <circleGeometry args={[r * 0.52, 36]} />
+      {/* Aperture (faces the rear so it reads hollow from the macro) */}
+      <mesh position={[0, 0, 0.0002]} rotation={[0, Math.PI, 0]}>
+        <circleGeometry args={[r * 0.52, 64]} />
         <primitive object={materials.lensCavity} attach="material" />
       </mesh>
       {/* Deep sensor glint */}
-      <mesh position={[0, 0, 0.0003]}>
-        <circleGeometry args={[r * 0.14, 22]} />
+      <mesh position={[0, 0, 0.0003]} rotation={[0, Math.PI, 0]}>
+        <circleGeometry args={[r * 0.14, 48]} />
         <primitive object={materials.sensorGlint} attach="material" />
       </mesh>
       {/* Focus highlight ring */}
       <mesh name="focus-ring" position={[0, 0, -0.00038]}>
-        <torusGeometry args={[r * 0.94, 0.00012, 8, 52]} />
+        <torusGeometry args={[r * 0.94, 0.00012, 12, 72]} />
         <primitive object={materials.focusRing} attach="material" />
       </mesh>
     </>
@@ -351,18 +380,20 @@ function FrontGlassDetails({ set }: { set: ReturnType<typeof createPhoneMaterial
 
       {/* Mic openings, lower front edge */}
       {[0.0042, -0.0042].map((x) => (
-        <mesh key={x} position={[x, -0.077, FRONT_GLASS.z + 0.00078]}>
+        <mesh key={x} position={[x, -0.077, FRONT_GLASS.z + 0.00078]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.00038, 0.00038, 0.0002, 12]} />
           <primitive object={set.speaker} attach="material" />
         </mesh>
       ))}
 
-      {/* Front camera + sensors, punched under the glass */}
-      <mesh position={[0, 0.065, FRONT_GLASS.z + 0.00085]}>
+      {/* Front camera + sensors, punched under the glass. The wells are
+          aligned to the glass plane normal so they read as drill holes,
+          not pills standing on end. */}
+      <mesh position={[0, 0.065, FRONT_GLASS.z + 0.00085]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.00078, 0.00078, 0.00025, 20]} />
         <primitive object={set.port} attach="material" />
       </mesh>
-      <mesh position={[0.0042, 0.065, FRONT_GLASS.z + 0.00085]}>
+      <mesh position={[0.0042, 0.065, FRONT_GLASS.z + 0.00085]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.00034, 0.00034, 0.00025, 12]} />
         <primitive object={set.port} attach="material" />
       </mesh>
@@ -433,4 +464,53 @@ function createSquircleGeometry(size: number, sizeY: number, depth: number): THR
   })
   geometry.translate(0, 0, -(depth / 2 + 0.0006))
   return geometry
+}
+
+/**
+ * Perimeter bezel ring: an extruded rounded-rect outline with a rectangular
+ * opening cut for the front glass. Replaces the old solid frame slab so the
+ * front of the phone reads as titanium bezel around a display, not a flat
+ * metal plate.
+ */
+function createFrameRingGeometry(): THREE.BufferGeometry {
+  const outer = new THREE.Shape()
+  roundedRectPath(outer, -DIM.w / 2, -DIM.h / 2, DIM.w, DIM.h, 0.0042)
+  // The inner cutout reaches the glass edge (with a hairline of overhang) so
+  // no open slot forms between the bezel and the display; the ring bevels
+  // into the front face instead.
+  const inner = new THREE.Path()
+  roundedRectPath(inner, -DIM.w / 2 + BEZEL * 0.95, -DIM.h / 2 + BEZEL * 0.95, DIM.w - BEZEL * 1.9, DIM.h - BEZEL * 1.9, 0.0012)
+  outer.holes.push(inner)
+  const geometry = new THREE.ExtrudeGeometry(outer, {
+    depth: RING_DEPTH,
+    bevelEnabled: true,
+    bevelSize: 0.00012,
+    bevelThickness: 0.0001,
+    bevelSegments: 2,
+    curveSegments: 16,
+    steps: 1,
+  })
+  geometry.translate(0, 0, RING_BASE_Z)
+  return geometry
+}
+
+/** Traces a rounded-rectangle outline with the given corner radius. */
+function roundedRectPath(
+  path: THREE.Shape | THREE.Path,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const c = Math.min(r, w / 2, h / 2)
+  path.moveTo(x + c, y)
+  path.lineTo(x + w - c, y)
+  path.quadraticCurveTo(x + w, y, x + w, y + c)
+  path.lineTo(x + w, y + h - c)
+  path.quadraticCurveTo(x + w, y + h, x + w - c, y + h)
+  path.lineTo(x + c, y + h)
+  path.quadraticCurveTo(x, y + h, x, y + h - c)
+  path.lineTo(x, y + c)
+  path.quadraticCurveTo(x, y, x + c, y)
 }

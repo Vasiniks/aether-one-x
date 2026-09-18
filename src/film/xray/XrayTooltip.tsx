@@ -24,7 +24,7 @@ export function XrayTooltip() {
 
   return (
     <div
-      className="pointer-events-none fixed z-40 hidden lg:block"
+      className="pointer-events-none fixed z-40 block"
       style={{ left, top }}
       aria-live="polite"
     >

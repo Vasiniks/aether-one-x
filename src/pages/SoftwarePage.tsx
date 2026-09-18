@@ -1,5 +1,5 @@
 import { CheckCircle } from '@phosphor-icons/react'
-import { AI_CAPABILITIES, CONCEPT_NOTICE } from '../data/product'
+import { AI_CAPABILITIES, CONCEPT_NOTICE, PERFORMANCE } from '../data/product'
 import { PHONE_INTERACTION_COPY } from '../data/software'
 import { AetherOSPhone } from '../components/PhoneOS/AetherOSPhone'
 import { CtaBand } from '../components/layout/CtaBand'
@@ -9,7 +9,7 @@ import { Reveal } from '../components/ui/Reveal'
 const META = [
   { k: 'Operating system', v: 'AetherOS 2.0' },
   { k: 'Memory', v: '16 GB' },
-  { k: 'Neural engine', v: '46 TOPS' },
+  { k: 'Neural engine', v: `${PERFORMANCE.npu.hero.value} TOPS` },
   { k: 'Intelligence', v: 'On-device' },
 ]
 

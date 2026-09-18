@@ -19,15 +19,17 @@ import { createInternalsMaterials } from './materials'
 export interface InternalsControl {
   /** Global hardware opacity (0..1). */
   opacity: number
-  /** Exploded-parts separation (0..1). */
+  /** Exploded-parts separation (0..1), x-ray pass only. */
   explode: number
+  /** Battery-only separation added at the energy climax (0..1). */
+  explodeBatt: number
   /** 0..1 emphasis on the A1 Ultra die. */
   chipFocus: number
   /** 0..1 energy-story pulse. */
   energy: number
 }
 
-const ZERO: InternalsControl = { opacity: 0, explode: 0, chipFocus: 0, energy: 0 }
+const ZERO: InternalsControl = { opacity: 0, explode: 0, explodeBatt: 0, chipFocus: 0, energy: 0 }
 
 /**
  * Home positions are physically stacked: coil near the rear glass, battery +
@@ -80,6 +82,7 @@ export function Internals({
     const c = control.current ?? ZERO
     const o = c.opacity
     const e = c.explode
+    const batt = c.explodeBatt
     const focus = c.chipFocus
     const d = 1 - Math.exp(-delta * 6)
     const t = state.clock.elapsedTime
@@ -87,7 +90,17 @@ export function Internals({
     // Cull the whole assembly from the transparent pass when fully hidden.
     if (root.current) root.current.visible = o > 0.002
 
+    // While fully hidden skip the whole per-frame write block (uniform + sin
+    // traffic) - the stack only animates while it is on stage.
+    if (o <= 0.002) {
+      GHOST_LINE.visible = false
+      return
+    }
+
     const idle = e * 0.0004
+    // The energy climax breathes the cell with the charge story, not the x-ray
+    // explode (which is 0 by then) - otherwise the lift reads frozen.
+    const battIdle = batt * 0.0004
 
     const place = (
       ref: RefObject<THREE.Group | null>,
@@ -104,16 +117,33 @@ export function Internals({
       }
     }
 
-    // Coil and battery part toward the rear glass first; the sub-board and
-    // camera follow; the main board (with the A1 Ultra) lifts last, closest to
-    // the diving camera, and keeps rising while the die is the subject.
-    place(coilG, COIL, 0, 1)
-    place(battG, BATT, 0, 2)
+    // Coil and battery are driven by the combined separation (`placeBatt`),
+    // so the energy climax can lift the cell alone; the rest of the stack
+    // follows the x-ray explode only.
     place(subG, SUB, 0, 3)
     place(camG, CAM, focus * 0.003, 0)
     place(boardG, BOARD, focus * 0.005, 4)
     place(antG, ANT, 0, 5)
     place(midG, MID, 0, 6)
+
+    // The energy climax separates only the cell (battery + coil) so the 0.9
+    // beat reads as the cell lifting, never as a full re-explosion.
+    const eBatt = Math.min(1, batt + e)
+    const placeBatt = (
+      ref: RefObject<THREE.Group | null>,
+      def: typeof BATT,
+      idleAmp: number,
+    ) => {
+      if (!ref.current) return
+      const g = staged(eBatt, def.stagger)
+      _v.set(def.x + def.px * g, def.y, def.z + def.zOff * g)
+      ref.current.position.copy(_v)
+      if (idleAmp > 0 && focus < 0.5) {
+        ref.current.position.y += Math.sin(t * 0.9 + idleAmp) * battIdle
+      }
+    }
+    placeBatt(coilG, COIL, 1)
+    placeBatt(battG, BATT, 2)
 
     // Fade the whole stack together; the board + chip stay strongest while
     // the peripheral hardware (shields, battery, cameras) pulls back on focus.
@@ -152,8 +182,11 @@ export function Internals({
     m.sensor.emissiveIntensity = 0.7 + 0.25 * Math.sin(t * 1.1)
 
     // Ghost silhouette tracks visibility and breathes with separation + focus,
-    // so it feels like an energy boundary rather than a static cage.
-    GHOST_LINE.opacity = o * (0.2 + 0.06 * Math.sin(t * 1.6) + e * 0.14 + focus * 0.2)
+    // so it feels like an energy boundary rather than a static cage. It is
+    // culled entirely once the shell is fully opaque again.
+    const ghostOpacity = o * (0.2 + 0.06 * Math.sin(t * 1.6) + e * 0.14 + focus * 0.2)
+    GHOST_LINE.opacity = ghostOpacity
+    GHOST_LINE.visible = ghostOpacity > 0.004
   })
 
   return (

@@ -22,10 +22,10 @@ function onCreated(state: RootState) {
 }
 
 /** The film's full-height scene: phone hero, internals, ghost, lights. */
-export function FilmScene({ progress }: { progress: MotionValue<number> }) {
+export function FilmScene({ progress, playing = true }: { progress: MotionValue<number>; playing?: boolean }) {
   const heroRef = useRef<THREE.Group>(null)
   const internalsGroup = useRef<THREE.Group>(null)
-  const internals = useRef<InternalsControl>({ opacity: 0, explode: 0, chipFocus: 0, energy: 0 })
+  const internals = useRef<InternalsControl>({ opacity: 0, explode: 0, explodeBatt: 0, chipFocus: 0, energy: 0 })
   const frameShell = useRef<THREE.Group>(null)
   const backShell = useRef<THREE.Group>(null)
   const glassShell = useRef<THREE.Group>(null)
@@ -37,6 +37,7 @@ export function FilmScene({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <Canvas
+      frameloop={playing ? 'always' : 'never'}
       dpr={DPR}
       camera={{ position: [0, 0, 0.92], fov: 18, near: 0.01, far: 20 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
@@ -57,6 +58,7 @@ export function FilmScene({ progress }: { progress: MotionValue<number> }) {
         <group ref={heroRef}>
           <PhoneModel
             materials={FILM_MATERIALS}
+            animateFocusRing={false}
             groups={{
               frame: frameShell as MutableRefObject<THREE.Group | null>,
               back: backShell as MutableRefObject<THREE.Group | null>,

@@ -1,6 +1,7 @@
 import { motion, useTransform, useReducedMotion } from 'motion/react'
 import type { MotionValue } from 'motion/react'
 import type { ReactNode } from 'react'
+import { PERFORMANCE } from '../../data/product'
 
 /**
  * Art-directed spec annotations for the Aether A1 Ultra beat. Tags hang off
@@ -21,7 +22,7 @@ const TAGS: ChipTag[] = [
   { label: 'A1 ULTRA', detail: '171 mm²', x: '50%', y: '24%', side: 'bottom' },
   { label: '3 NM', detail: 'SECOND-GEN EUV', x: '74%', y: '38%', side: 'left' },
   { label: '8-CORE CPU', detail: '2x4.4 GHZ', x: '76%', y: '62%', side: 'top' },
-  { label: '25 TOPS NPU', detail: 'ON-DEVICE', x: '30%', y: '60%', side: 'right' },
+  { label: `${PERFORMANCE.npu.hero.value} TOPS NPU`, detail: 'ON-DEVICE', x: '30%', y: '60%', side: 'right' },
   { label: '14-CORE GPU', detail: 'HW RAY-TRACING', x: '27%', y: '82%', side: 'top' },
 ]
 
@@ -125,9 +126,6 @@ export function ChipAnnotations({ local }: { local: MotionValue<number> }) {
         <div className="absolute -bottom-3 right-0 h-px w-5 bg-white/20" />
         <div className="absolute top-0 left-1/2 h-full w-px border-l border-dashed border-white/6" />
         <div className="absolute top-1/2 left-0 h-px w-full border-t border-dashed border-white/6" />
-        <span className="absolute -top-5 left-1/2 -translate-x-1/2 font-mono text-[9px] tracking-[0.3em] text-white/30">
-          A1 ULTRA
-        </span>
       </motion.div>
 
       {TAGS.map((tag, i) => (

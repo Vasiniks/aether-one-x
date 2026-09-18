@@ -159,6 +159,8 @@ export const BATTERY = {
   wired: 100,
   wireless: 40,
   reverse: 15,
+  /** Minutes on the wired charger to refill half the cell (source of truth). */
+  charge50Min: 30,
   /** Deterministic hypothetical drain in mAh per hour of use. */
   drainPerHour: {
     video: 670,
@@ -218,7 +220,7 @@ export const SPEC_CATEGORIES: SpecCategory[] = [
       { label: 'Process', value: '3 nm' },
       { label: 'CPU', value: '8-core' },
       { label: 'GPU', value: '14-core' },
-      { label: 'NPU', value: 'Dedicated, 46 TOPS' },
+      { label: 'NPU', value: `Dedicated, ${PERFORMANCE.npu.hero.value} TOPS` },
     ],
   },
   {

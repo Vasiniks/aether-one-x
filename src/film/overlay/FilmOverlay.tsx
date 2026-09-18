@@ -35,10 +35,10 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
     isFinale
       ? 'absolute inset-0'
       : align === 'center' || align === 'bottom'
-        ? 'absolute inset-x-0 bottom-24 flex flex-col items-center justify-end px-4 text-center'
+        ? 'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-center justify-end px-4 text-center'
         : align === 'right'
-          ? 'absolute bottom-24 left-5 right-5 flex flex-col items-start sm:left-8 lg:left-[40vw] lg:right-14'
-          : 'absolute bottom-24 right-5 left-5 flex flex-col items-start sm:right-8 lg:left-14 lg:right-[40vw]'
+          ? 'absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] left-5 right-5 flex flex-col items-start sm:left-8 lg:left-[40vw] lg:right-14'
+          : 'absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 left-5 flex flex-col items-start sm:right-8 lg:left-14 lg:right-[40vw]'
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
@@ -56,12 +56,12 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
 
       {/* Chapter caption */}
       <div className="absolute inset-0">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="sync">
           <motion.div
             key={act.id}
             initial={reduce ? false : { opacity: 0, y: 26 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -18 }}
+            exit={reduce ? undefined : { opacity: 0, y: -14, transition: { duration: 0.18, ease: 'easeIn' } }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             className={wrapperClass}
           >
@@ -94,7 +94,7 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
       </div>
 
       {/* Bottom hairline progress */}
-      <div className="absolute inset-x-0 bottom-6 flex justify-center px-4">
+      <div className="absolute inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] flex justify-center px-4">
         <div className="flex items-center gap-3">
           <span className="font-mono text-[10px] tracking-[0.28em] text-faint">
             {String(index).padStart(2, '0')}
@@ -107,7 +107,7 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
       </div>
 
       {/* Arrival scroll cue */}
-      <motion.div className="absolute inset-x-0 bottom-16 flex justify-center" style={{ opacity: scrollCueOpacity }}>
+      <motion.div className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] flex justify-center" style={{ opacity: scrollCueOpacity }}>
         <motion.span
           animate={reduce ? undefined : { y: [0, 6, 0] }}
           transition={reduce ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
@@ -123,11 +123,11 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
         {act.id === 'xray' ? (
           <motion.div
             key="xray-cue"
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduce ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            exit={reduce ? undefined : { opacity: 0, y: -8 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="absolute inset-x-0 bottom-36 hidden justify-center lg:flex"
+            className="absolute inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] hidden justify-center lg:flex"
           >
             <div className="flex items-center gap-2.5 rounded-sm border border-white/10 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.3em] text-white/50 backdrop-blur-sm">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300/80" />
@@ -142,9 +142,9 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
         {isSoftware ? (
           <motion.div
             key="os"
-            initial={{ opacity: 0, scale: 0.94, y: 10 }}
+            initial={reduce ? false : { opacity: 0, scale: 0.94, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            exit={reduce ? undefined : { opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
             className="absolute inset-0 flex items-center justify-center"
             style={{ pointerEvents: 'auto' }}
