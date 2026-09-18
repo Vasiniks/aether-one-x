@@ -8,7 +8,7 @@ import type { InternalsMaterials } from './materials'
  * drives the explode / focus animation.
  */
 
-export type PickRegistration = (mesh: THREE.Mesh, label: string, detail: string) => void
+
 
 const AXIS_Z: [number, number, number] = [Math.PI / 2, 0, 0]
 
@@ -233,18 +233,18 @@ export function SoCPackage({ m }: { m: InternalsMaterials }) {
       ))}
 
       {/* Exposed die: bevel ledge under a raised mirror face */}
-      <mesh material={m.socDie} position={[0, 0, 0.00078]}>
+      <mesh material={m.socDie} position={[0, 0, 0.00078]} userData={{ part: 'die' }}>
         <boxGeometry args={[0.0085, 0.0085, 0.00012]} />
       </mesh>
-      <mesh material={m.socDie} position={[0, 0, 0.00095]}>
+      <mesh material={m.socDie} position={[0, 0, 0.00095]} userData={{ part: 'die' }}>
         <boxGeometry args={[0.0082, 0.0082, 0.00042]} />
       </mesh>
 
       {/* Engraved reticle cross + corner fiducials (vertex detail) */}
-      <mesh material={m.socPad} position={[0, 0, 0.00118]}>
+      <mesh material={m.socPad} position={[0, 0, 0.00118]} userData={{ part: 'die' }}>
         <boxGeometry args={[0.0013, 0.00012, 0.00004]} />
       </mesh>
-      <mesh material={m.socPad} position={[0, 0, 0.00118]}>
+      <mesh material={m.socPad} position={[0, 0, 0.00118]} userData={{ part: 'die' }}>
         <boxGeometry args={[0.00012, 0.0013, 0.00004]} />
       </mesh>
       {[
@@ -253,7 +253,7 @@ export function SoCPackage({ m }: { m: InternalsMaterials }) {
         [-0.0035, 0.0035],
         [0.0035, 0.0035],
       ].map(([x, y]) => (
-        <mesh key={`${x}${y}`} material={m.socPad} position={[x, y, 0.00118]}>
+        <mesh key={`${x}${y}`} material={m.socPad} position={[x, y, 0.00118]} userData={{ part: 'die' }}>
           <boxGeometry args={[0.00022, 0.00022, 0.00004]} />
         </mesh>
       ))}

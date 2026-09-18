@@ -31,8 +31,8 @@ export function CamerasPage() {
     <>
       <PageHero
         kicker="Aether One X · Cameras"
-        title="Five lenses, one quiet muscle"
-        lead="A complete focus system that fits in one pocket: a 1-inch-class main, a 122-degree ultra-wide, and a floating telephoto at ten times. The processor decides the exposure before you do."
+        title="Four lenses, one quiet muscle"
+        lead="A complete focus system that fits in one pocket: a 1/1.3-inch main, a 122-degree ultra-wide, and a floating telephoto at ten times. The processor decides the exposure before you do."
         meta={META}
       >
         <div className="w-[15rem]">
@@ -112,7 +112,7 @@ export function CamerasPage() {
                 style={{ background: 'linear-gradient(90deg, rgba(10,10,12,0.5), rgba(10,10,12,0) 30%, rgba(10,10,12,0) 70%, rgba(10,10,12,0.45))' }}
               />
               <span className="pointer-events-none absolute bottom-6 left-6 flex items-center gap-3 border-l border-white/15 pl-3 font-mono text-[10px] tracking-[0.24em] text-white/60">
-                REAR SYSTEM · FIVE SENSORS
+                REAR SYSTEM · THREE SENSORS
               </span>
               <span className="pointer-events-none absolute top-6 right-6 flex items-center gap-3 border-r border-white/15 pr-3 text-right font-mono text-[10px] tracking-[0.24em] text-white/60">
                 FLOATING TELE · 10×

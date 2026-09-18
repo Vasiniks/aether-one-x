@@ -60,6 +60,7 @@ function CameraApp() {
         <button
           type="button"
           onClick={() => setFlash((f) => !f)}
+          aria-label="Toggle flash"
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white/85"
         >
           <Flashlight size={14} />
@@ -142,6 +143,7 @@ function MessagesApp() {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder="Message"
+          aria-label="Message"
           className="flex-1 rounded-full bg-white/8 px-3 py-1.5 text-[10px] text-white placeholder:text-white/40 focus:outline-none"
         />
         <button type="button" onClick={send} className="rounded-full bg-aether/30 px-3 py-1.5 text-[10px] text-white">

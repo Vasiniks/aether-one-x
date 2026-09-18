@@ -46,9 +46,6 @@ const _mix = new THREE.Color()
 const _accPos = new THREE.Vector3()
 const _intPos = new THREE.Vector3()
 
-export { DEFAULT_STAGE, STAGE_LIGHTING }
-export type { StageLightState }
-
 export function StageLighting({ progress }: { progress: MotionValue<number> }) {
   const key = useRef<THREE.DirectionalLight>(null)
   const fill = useRef<THREE.DirectionalLight>(null)

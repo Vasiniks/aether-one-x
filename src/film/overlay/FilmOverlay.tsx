@@ -87,7 +87,7 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
             key={act.id}
             initial={reduce ? false : { opacity: 0, y: 26 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -14, transition: { duration: 0.18, ease: 'easeIn' } }}
+            exit={reduce ? undefined : { opacity: 0, y: -14, transition: { duration: 0.3, ease: 'easeIn' } }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
             className={isFinale ? WRAP.final : WRAP[act.id]}
           >

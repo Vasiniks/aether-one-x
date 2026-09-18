@@ -136,7 +136,7 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
     rows: [
       { k: 'PIXELS', v: DISPLAY.resolution },
       { k: 'PEAK', v: `${DISPLAY.peakNits} NITS` },
-      { k: 'COLOUR', v: `${DISPLAY.colorBits}-BIT HDR` },
+      { k: 'COLOR', v: `${DISPLAY.colorBits}-BIT HDR` },
     ],
     reveal: { title: 0.08, num: 0.2, unit: 0.3, rows: 0.5 },
   },

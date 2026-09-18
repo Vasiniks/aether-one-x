@@ -71,9 +71,9 @@ export interface CameraLens {
 }
 
 export const CAMERA_LENSES: CameraLens[] = [
-  { id: 'main', label: 'Main', zoom: '1×', mp: 50, detail: '1/1.3" sensor · f/1.6 · OIS · dual-pixel AF', spec: '50 MP · 1×' },
-  { id: 'ultrawide', label: 'Ultra-wide', zoom: '0.5×', mp: 48, detail: '122° field of view · macro capable', spec: '48 MP · 122°' },
-  { id: 'telephoto', label: 'Telephoto', zoom: '5×', mp: 50, detail: '5× optical · 10× hybrid · OIS', spec: '5× OPTICAL · 10× HYBRID' },
+  { id: 'main', label: 'Main', zoom: '1×', mp: 50, detail: '1/1.3" sensor, f/1.6, OIS, dual-pixel AF', spec: '50 MP · 1×' },
+  { id: 'ultrawide', label: 'Ultra-wide', zoom: '0.5×', mp: 48, detail: '122° field of view, macro capable', spec: '48 MP · 122°' },
+  { id: 'telephoto', label: 'Telephoto', zoom: '5×', mp: 50, detail: '5× optical, 10× hybrid, OIS', spec: '5× OPTICAL · 10× HYBRID' },
   { id: 'front', label: 'Front', zoom: '1×', mp: 32, detail: 'Autofocus · 4K60 video', spec: '32 MP · 4K60' },
 ]
 
@@ -267,10 +267,10 @@ export const SPEC_CATEGORIES: SpecCategory[] = [
   {
     label: 'Cameras',
     rows: [
-      { label: 'Main', value: '50 MP · 1/1.3" · f/1.6 · OIS · dual-pixel AF' },
-      { label: 'Ultra-wide', value: '48 MP · 122° · macro' },
-      { label: 'Telephoto', value: '50 MP · 5× optical · 10× hybrid · OIS' },
-      { label: 'Front', value: '32 MP · autofocus · 4K60' },
+      { label: 'Main', value: '50 MP · 1/1.3", f/1.6, OIS, dual-pixel AF' },
+      { label: 'Ultra-wide', value: '48 MP · 122°, macro' },
+      { label: 'Telephoto', value: '50 MP · 5× optical, 10× hybrid, OIS' },
+      { label: 'Front', value: '32 MP · autofocus, 4K60' },
       { label: 'Video', value: '8K30 · cinematic mode' },
       { label: 'Capture', value: 'RAW · computational photography' },
     ],
@@ -293,7 +293,7 @@ export const SPEC_CATEGORIES: SpecCategory[] = [
       { label: 'Cellular', value: '5G mmWave' },
       { label: 'Wi-Fi', value: 'Wi-Fi 7' },
       { label: 'Bluetooth', value: '5.4' },
-      { label: 'Other', value: 'UWB · NFC · dual SIM' },
+      { label: 'Other', value: 'UWB · NFC, dual SIM' },
     ],
   },
   {

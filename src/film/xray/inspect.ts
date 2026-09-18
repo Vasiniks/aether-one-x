@@ -40,15 +40,15 @@ export interface PartCopy {
  * detail strings inside this module or XrayTooltip.tsx.
  * Compliance: no em-dash, max one middle-dot per line. */
 export const PART_COPY: Record<PartId, PartCopy> = {
-  die: { label: 'A1 ULTRA', detail: '3 NM \u00B7 8-CORE CPU \u00B7 14-CORE GPU \u00B7 46 TOPS NPU' },
-  battery: { label: 'BATTERY', detail: '5200 MAH \u00B7 100 W WIRED \u00B7 40 W WIRELESS \u00B7 15 W REVERSE' },
-  main: { label: 'MAIN BOARD', detail: '14-LAYER PCB \u00B7 16 GB LPDDR5X \u00B7 UFS 4.1' },
-  cameras: { label: 'CAMERAS', detail: '50 MP MAIN \u00B7 48 MP ULTRA \u00B7 50 MP TELE' },
+  die: { label: 'A1 ULTRA', detail: '3 NM \u00B7 8-CORE CPU, 14-CORE GPU, 46 TOPS NPU' },
+  battery: { label: 'BATTERY', detail: '5200 MAH \u00B7 100 W WIRED, 40 W WIRELESS, 15 W REVERSE' },
+  main: { label: 'MAIN BOARD', detail: '14-LAYER PCB \u00B7 16 GB LPDDR5X, UFS 4.1' },
+  cameras: { label: 'CAMERAS', detail: '50 MP MAIN \u00B7 48 MP ULTRA, 50 MP TELE' },
   wpc: { label: 'WIRELESS POWER', detail: '40 W COIL \u00B7 QI2 READY' },
-  sub: { label: 'SUB BOARD', detail: 'USB-C \u00B7 100 W CHARGE IC \u00B7 SPEAKER' },
-  frame: { label: 'FRAME', detail: 'GRADE-5 TITANIUM \u00B7 7.8 MM \u00B7 198 G' },
-  antenna: { label: 'ANTENNA', detail: '5G MMWAVE \u00B7 WI-FI 7 \u00B7 BLUETOOTH 5.4' },
-  screen: { label: 'DISPLAY', detail: '3200 X 1440 \u00B7 1-144 HZ \u00B7 2800 NITS' },
+  sub: { label: 'SUB BOARD', detail: 'USB-C \u00B7 100 W CHARGE IC, SPEAKER' },
+  frame: { label: 'FRAME', detail: 'GRADE-5 TITANIUM \u00B7 7.8 MM, 198 G' },
+  antenna: { label: 'ANTENNA', detail: '5G MMWAVE \u00B7 WI-FI 7, BLUETOOTH 5.4' },
+  screen: { label: 'DISPLAY', detail: '3200 \u00D7 1440 \u00B7 1-144 HZ, 2800 NITS' },
 }
 
 /** Meshes tagged `name="xray:..."` (legacy path) still map onto PartId. */
@@ -72,7 +72,7 @@ export interface HighlightSpec {
 
 /**
  * Read this every frame; never write `.blend` by hand. To select, assign
- * `highlight.subject = 'die'` (or call setHighlightActive) and call tick().
+ * `highlight.subject = 'die'` and call tick().
  */
 export const highlight: HighlightSpec = {
   subject: null,
@@ -126,7 +126,6 @@ export const hoverPointer: {
 }
 
 let active = false
-let tooltip: XrayTooltip | null = null
 let lastKey = ''
 let lastPart: PartId | null = null
 const lastAnchor = new THREE.Vector3()
@@ -141,20 +140,10 @@ export function setXrayActive(value: boolean) {
 }
 
 function publish(tip: XrayTooltip | null) {
-  tooltip = tip
   window.dispatchEvent(new CustomEvent<XrayTooltip | null>(XRAY_EVENT, { detail: tip }))
 }
 
-export function getXrayTooltip(): XrayTooltip | null {
-  return tooltip
-}
-
 export const XRAY_TOOLTIP_EVENT = XRAY_EVENT
-
-/** Strictly additive switch for the selection state. Pass null to release. */
-export function setHighlightActive(subject: PartId | null) {
-  if (subject !== highlight.subject) blendSubject(subject, 0.25)
-}
 
 const _tip = new THREE.Vector3()
 const _v = new THREE.Vector3()

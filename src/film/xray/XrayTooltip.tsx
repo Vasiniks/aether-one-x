@@ -20,6 +20,7 @@ export function XrayTooltip() {
 
   if (!tip) return null
 
+  const flip = tip.x > 0.6
   const left = `calc(${tip.x * 100}% )`
   const top = `calc(${tip.y * 100}% )`
   const at = `translate(-50%, -50%)`
@@ -47,7 +48,7 @@ export function XrayTooltip() {
 
       <div
         className="absolute top-1/2 z-10 min-w-40 max-w-64 border-l border-white/10 bg-black/55 px-4 py-3 pl-5 backdrop-blur-md"
-        style={{ transform: 'translateY(-50%)', marginLeft: 18 }}
+        style={flip ? { transform: 'translateY(-50%)', right: 18 } : { transform: 'translateY(-50%)', marginLeft: 18 }}
       >
         {/* Hairline seam under the kicker */}
         <div
