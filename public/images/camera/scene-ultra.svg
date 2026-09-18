@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#070d18"/>
+      <stop offset="0.55" stop-color="#101d33"/>
+      <stop offset="1" stop-color="#2c3d52"/>
+    </linearGradient>
+    <radialGradient id="horizon" cx="0.5" cy="1" r="0.9">
+      <stop offset="0" stop-color="#5b4a3a" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#5b4a3a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="moon" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="win" width="56" height="70" patternUnits="userSpaceOnUse">
+      <rect width="56" height="70" fill="none"/>
+      <rect x="8" y="12" width="16" height="22" rx="1.5" fill="#ffd9a0" opacity="0.8"/>
+      <rect x="30" y="12" width="16" height="22" rx="1.5" fill="#8fb4ff" opacity="0.4"/>
+      <rect x="8" y="40" width="16" height="22" rx="1.5" fill="#ffcf8d" opacity="0.55"/>
+      <rect x="30" y="40" width="16" height="22" rx="1.5" fill="#ffd9a0" opacity="0.3"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <g fill="#ffffff">
+    <circle cx="120" cy="80" r="1.4" opacity="0.7"/>
+    <circle cx="340" cy="150" r="1" opacity="0.5"/>
+    <circle cx="520" cy="60" r="1.2" opacity="0.6"/>
+    <circle cx="760" cy="120" r="1" opacity="0.4"/>
+    <circle cx="980" cy="70" r="1.3" opacity="0.6"/>
+    <circle cx="1220" cy="160" r="1" opacity="0.5"/>
+    <circle cx="1420" cy="90" r="1.4" opacity="0.7"/>
+    <circle cx="1500" cy="200" r="1" opacity="0.45"/>
+  </g>
+  <circle cx="210" cy="140" r="150" fill="url(#moon)" opacity="0.22"/>
+  <circle cx="210" cy="140" r="26" fill="#f4f7ff"/>
+  <circle cx="216" cy="134" r="26" fill="url(#sky)"/>
+  <rect width="1600" height="330" y="560" fill="#05070c"/>
+  <g>
+    <rect x="0" y="500" width="180" height="400" fill="#0a0e16"/>
+    <rect x="0" y="500" width="180" height="400" fill="url(#win)" opacity="0.5"/>
+    <rect x="190" y="540" width="240" height="360" fill="#0d1118"/>
+    <rect x="190" y="540" width="240" height="360" fill="url(#win)" opacity="0.6"/>
+    <rect x="440" y="480" width="150" height="420" fill="#0a0e16"/>
+    <rect x="440" y="480" width="150" height="420" fill="url(#win)" opacity="0.45"/>
+    <rect x="600" y="520" width="300" height="380" fill="#0c1017"/>
+    <rect x="600" y="520" width="300" height="380" fill="url(#win)" opacity="0.55"/>
+    <rect x="910" y="560" width="200" height="340" fill="#090d14"/>
+    <rect x="910" y="560" width="200" height="340" fill="url(#win)" opacity="0.4"/>
+    <rect x="1120" y="510" width="260" height="390" fill="#0d1118"/>
+    <rect x="1120" y="510" width="260" height="390" fill="url(#win)" opacity="0.6"/>
+    <rect x="1390" y="550" width="210" height="350" fill="#0a0e16"/>
+    <rect x="1390" y="550" width="210" height="350" fill="url(#win)" opacity="0.5"/>
+  </g>
+  <rect width="1600" height="900" fill="url(#horizon)"/>
+  <ellipse cx="180" cy="840" rx="150" ry="60" fill="#ffd9a0" opacity="0.07"/>
+  <ellipse cx="1360" cy="820" rx="190" ry="70" fill="#ffd9a0" opacity="0.06"/>
+  <g opacity="0.5">
+    <circle cx="90" cy="700" r="34" fill="#9fc6ff" opacity="0.1"/>
+    <circle cx="150" cy="760" r="18" fill="#9fc6ff" opacity="0.12"/>
+    <circle cx="1490" cy="690" r="40" fill="#9fc6ff" opacity="0.09"/>
+    <circle cx="1440" cy="780" r="20" fill="#9fc6ff" opacity="0.12"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1560">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.28" stop-color="#e6edf7"/>
+      <stop offset="0.62" stop-color="#b8c9e0"/>
+      <stop offset="1" stop-color="#7e96b8"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.65"/>
+      <stop offset="0.3" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#3d5879" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="veil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.2" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="1560" fill="url(#body)"/>
+  <rect width="720" height="1560" fill="url(#veil)"/>
+  <rect width="720" height="1560" fill="url(#sheen)"/>
+  <rect x="0" y="0" width="720" height="1560" fill="none" stroke="#0f1a2b" stroke-opacity="0.2"/>
+</svg>

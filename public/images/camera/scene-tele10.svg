@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121a28"/>
+      <stop offset="1" stop-color="#0a0f18"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffc98f" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffc98f" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="win" width="92" height="120" patternUnits="userSpaceOnUse">
+      <rect width="92" height="120" fill="#0c1320"/>
+      <rect x="6" y="8" width="80" height="104" rx="3" fill="#16253c" stroke="#2b3b52" stroke-opacity="0.6"/>
+      <rect x="14" y="18" width="28" height="34" rx="2" fill="#ffd9a0" opacity="0.9"/>
+      <rect x="50" y="18" width="28" height="34" rx="2" fill="#9fc6ff" opacity="0.7"/>
+      <rect x="14" y="58" width="28" height="34" rx="2" fill="#ffcf8d" opacity="0.7"/>
+      <rect x="50" y="58" width="28" height="34" rx="2" fill="#ffd9a0" opacity="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="1100" fill="#070b12"/>
+  <rect width="800" height="1100" fill="url(#win)" opacity="0.95"/>
+  <rect width="800" height="1100" fill="url(#wall)" opacity="0.12"/>
+  <circle cx="320" cy="240" r="120" fill="url(#bloom)"/>
+  <circle cx="180" cy="560" r="60" fill="url(#bloom)"/>
+  <circle cx="560" cy="800" r="46" fill="url(#bloom)"/>
+  <g opacity="0.7">
+    <circle cx="700" cy="380" r="34" fill="#9fc6ff" opacity="0.14"/>
+    <circle cx="90" cy="820" r="26" fill="#9fc6ff" opacity="0.12"/>
+    <circle cx="760" cy="920" r="20" fill="#9fc6ff" opacity="0.1"/>
+  </g>
+  <rect x="0" y="0" width="800" height="1100" fill="none" stroke="#0c1320"/>
+</svg>

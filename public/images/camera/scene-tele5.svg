@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1019"/>
+      <stop offset="0.7" stop-color="#18273c"/>
+      <stop offset="1" stop-color="#2a3d52"/>
+    </linearGradient>
+    <linearGradient id="hazebot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9eb6d0" stop-opacity="0"/>
+      <stop offset="1" stop-color="#9eb6d0" stop-opacity="0.18"/>
+    </linearGradient>
+    <pattern id="win" width="34" height="44" patternUnits="userSpaceOnUse">
+      <rect width="34" height="44" fill="none"/>
+      <rect x="5" y="7" width="10" height="14" rx="1" fill="#ffd9a0" opacity="0.9"/>
+      <rect x="19" y="7" width="10" height="14" rx="1" fill="#9fc6ff" opacity="0.6"/>
+      <rect x="5" y="25" width="10" height="14" rx="1" fill="#ffcf8d" opacity="0.65"/>
+      <rect x="19" y="25" width="10" height="14" rx="1" fill="#ffd9a0" opacity="0.45"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="1000" fill="url(#sky)"/>
+  <circle cx="640" cy="120" r="1.2" fill="#ffffff" opacity="0.6"/>
+  <circle cx="700" cy="90" r="1" fill="#ffffff" opacity="0.5"/>
+  <g>
+    <rect x="60" y="180" width="260" height="820" fill="#0e1420"/>
+    <rect x="60" y="180" width="260" height="820" fill="url(#win)" opacity="0.85"/>
+    <rect x="330" y="140" width="180" height="860" fill="#111827"/>
+    <rect x="330" y="140" width="180" height="860" fill="url(#win)" opacity="0.7"/>
+    <rect x="520" y="240" width="240" height="760" fill="#0c121d"/>
+    <rect x="520" y="240" width="240" height="760" fill="url(#win)" opacity="0.55"/>
+  </g>
+  <rect y="560" width="800" height="440" fill="url(#hazebot)"/>
+  <circle cx="200" cy="820" r="20" fill="#9fc6ff" opacity="0.14"/>
+  <circle cx="620" cy="760" r="16" fill="#9fc6ff" opacity="0.12"/>
+</svg>
