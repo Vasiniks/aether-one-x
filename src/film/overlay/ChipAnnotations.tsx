@@ -1,13 +1,14 @@
 import { motion, useTransform, useReducedMotion } from 'motion/react'
 import type { MotionValue } from 'motion/react'
 import type { ReactNode } from 'react'
-import { PERFORMANCE } from '../../data/product'
+import { CHIPSET } from '../../data/product'
 
 /**
- * Art-directed spec annotations for the Aether A1 Ultra beat. Tags hang off
- * the die on hairlines that point back at it, datasheet style, over a faint
- * die outline and coordinate grid. Reveal is scroll-driven: the labels file in
- * one by one as the camera completes the dive into the cavity.
+ * Art-directed spec annotations for the Aether A1 Ultra beat. Four restrained
+ * tags hang off the die on hairlines that point back at it, datasheet style,
+ * over a faint die outline and coordinate grid. Reveal is scroll-driven: the
+ * labels file in one by one after the camera completes the dive into the
+ * cavity, positioned at the die's quadrant edges so they never crowd the macro.
  */
 
 interface ChipTag {
@@ -19,14 +20,13 @@ interface ChipTag {
 }
 
 const TAGS: ChipTag[] = [
-  { label: 'A1 ULTRA', detail: '171 mm²', x: '50%', y: '24%', side: 'bottom' },
-  { label: '3 NM', detail: 'SECOND-GEN EUV', x: '74%', y: '38%', side: 'left' },
-  { label: '8-CORE CPU', detail: '2x4.4 GHZ', x: '76%', y: '62%', side: 'top' },
-  { label: `${PERFORMANCE.npu.hero.value} TOPS NPU`, detail: 'ON-DEVICE', x: '30%', y: '60%', side: 'right' },
-  { label: '14-CORE GPU', detail: 'HW RAY-TRACING', x: '27%', y: '82%', side: 'top' },
+  { label: 'A1 ULTRA', detail: `${CHIPSET.dieAreaMm2} MM²`, x: '50%', y: '26%', side: 'bottom' },
+  { label: `${CHIPSET.processNm} NM`, detail: 'SECOND-GEN EUV', x: '74%', y: '38%', side: 'left' },
+  { label: `${CHIPSET.cpuCores} CPU·${CHIPSET.gpuCores} GPU`, detail: `UP TO ${CHIPSET.cpuClockGhZ} GHZ`, x: '76%', y: '70%', side: 'top' },
+  { label: `${CHIPSET.npuTops} TOPS`, detail: 'DEDICATED NPU', x: '27%', y: '64%', side: 'right' },
 ]
 
-const RULE = 36
+const RULE = 34
 
 function Tag({ tag, index, local, reduce }: {
   tag: ChipTag
@@ -34,11 +34,11 @@ function Tag({ tag, index, local, reduce }: {
   local: MotionValue<number>
   reduce: boolean
 }) {
-  const from = 0.55 + index * 0.06
+  const from = 0.56 + index * 0.055
   const opacity = useTransform(local, [from, from + 0.05], [0, 1])
   const drift = useTransform(local, [from, from + 0.09], [12, 0])
 
-  const dot = 'absolute top-1/2 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-300/80 bg-sky-300/25'
+  const dot = 'absolute top-1/2 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-300/70 bg-sky-300/25'
 
   let rule: ReactNode
   let label: ReactNode
@@ -47,7 +47,7 @@ function Tag({ tag, index, local, reduce }: {
       <span className="absolute top-1/2 right-[calc(100%-2px)] h-px -translate-y-1/2 origin-right bg-gradient-to-r from-sky-300/70 to-transparent" style={{ width: RULE }} />
     )
     label = (
-      <span className="absolute top-1/2 right-[calc(100%+34px)] -translate-y-1/2 text-right">
+      <span className="absolute top-1/2 right-[calc(100%+32px)] -translate-y-1/2 text-right">
         <TagText tag={tag} />
       </span>
     )
@@ -65,7 +65,7 @@ function Tag({ tag, index, local, reduce }: {
       <span className="absolute left-1/2 bottom-[calc(100%-2px)] w-px origin-bottom bg-gradient-to-t from-sky-300/70 to-transparent" style={{ height: RULE }} />
     )
     label = (
-      <span className="absolute bottom-[calc(100%+34px)] left-1/2 -translate-x-1/2 text-center">
+      <span className="absolute bottom-[calc(100%+30px)] left-1/2 -translate-x-1/2 text-center">
         <TagText tag={tag} />
       </span>
     )
@@ -99,7 +99,7 @@ function TagText({ tag }: { tag: ChipTag }) {
       <p className="whitespace-nowrap font-mono text-[10px] font-semibold tracking-[0.22em] text-sky-200">
         {tag.label}
       </p>
-      <p className="mt-0.5 whitespace-nowrap font-mono text-[9px] tracking-[0.18em] text-white/45">
+      <p className="mt-0.5 whitespace-nowrap font-mono text-[8.5px] tracking-[0.18em] text-white/45">
         {tag.detail}
       </p>
     </>
@@ -109,14 +109,14 @@ function TagText({ tag }: { tag: ChipTag }) {
 export function ChipAnnotations({ local }: { local: MotionValue<number> }) {
   const reduce = useReducedMotion()
 
-  // The whole board fades in around the dive, then holds.
+  // The whole board fades in after the dive, then holds.
   const boardOpacity = useTransform(local, [0.5, 0.62], [0, 1])
 
   return (
     <div className="absolute inset-0 hidden lg:block" aria-hidden="true">
       {/* Die outline + coordinate grid reference */}
       <motion.div
-        className="absolute left-1/2 top-[44%] h-[24vmin] w-[24vmin] -translate-x-1/2 -translate-y-1/2"
+        className="absolute left-1/2 top-[43%] h-[24vmin] w-[24vmin] -translate-x-1/2 -translate-y-1/2"
         style={{ opacity: boardOpacity }}
       >
         <div className="absolute inset-0 border border-white/12" />

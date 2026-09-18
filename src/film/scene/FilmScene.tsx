@@ -19,13 +19,26 @@ function onCreated(state: RootState) {
   // speculars stop clipping, blacks hold their shape.
   state.gl.toneMapping = THREE.ACESFilmicToneMapping
   state.gl.toneMappingExposure = 1.1
+  if (import.meta.env.DEV) {
+    // QA-only handle: read-only GL probes drive the film state in tests.
+    ;(window as unknown as { __film?: RootState }).__film = state
+  }
 }
 
 /** The film's full-height scene: phone hero, internals, ghost, lights. */
 export function FilmScene({ progress, playing = true }: { progress: MotionValue<number>; playing?: boolean }) {
   const heroRef = useRef<THREE.Group>(null)
   const internalsGroup = useRef<THREE.Group>(null)
-  const internals = useRef<InternalsControl>({ opacity: 0, explode: 0, explodeBatt: 0, chipFocus: 0, energy: 0 })
+  const internals = useRef<InternalsControl>({
+    opacity: 0,
+    explode: 0,
+    explodeBatt: 0,
+    chipFocus: 0,
+    energy: 0,
+    chipLift: 0,
+    battLift: 0,
+    subjectDim: 0,
+  })
   const frameShell = useRef<THREE.Group>(null)
   const backShell = useRef<THREE.Group>(null)
   const glassShell = useRef<THREE.Group>(null)
@@ -39,7 +52,7 @@ export function FilmScene({ progress, playing = true }: { progress: MotionValue<
     <Canvas
       frameloop={playing ? 'always' : 'never'}
       dpr={DPR}
-      camera={{ position: [0, 0, 0.92], fov: 18, near: 0.01, far: 20 }}
+      camera={{ position: [0, 0, 0.92], fov: 18, near: 0.003, far: 4 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       onCreated={onCreated}
     >

@@ -66,13 +66,15 @@ export interface CameraLens {
   zoom: string
   mp: number
   detail: string
+  /** Compact spec line shown in the film's camera beat (single middle-dot max). */
+  spec: string
 }
 
 export const CAMERA_LENSES: CameraLens[] = [
-  { id: 'main', label: 'Main', zoom: '1×', mp: 50, detail: '1/1.3" sensor · f/1.6 · OIS · dual-pixel AF' },
-  { id: 'ultrawide', label: 'Ultra-wide', zoom: '0.5×', mp: 48, detail: '122° field of view · macro capable' },
-  { id: 'telephoto', label: 'Telephoto', zoom: '5×', mp: 50, detail: '5× optical · 10× hybrid · OIS' },
-  { id: 'front', label: 'Front', zoom: '1×', mp: 32, detail: 'Autofocus · 4K60 video' },
+  { id: 'main', label: 'Main', zoom: '1×', mp: 50, detail: '1/1.3" sensor · f/1.6 · OIS · dual-pixel AF', spec: '50 MP · 1×' },
+  { id: 'ultrawide', label: 'Ultra-wide', zoom: '0.5×', mp: 48, detail: '122° field of view · macro capable', spec: '48 MP · 122°' },
+  { id: 'telephoto', label: 'Telephoto', zoom: '5×', mp: 50, detail: '5× optical · 10× hybrid · OIS', spec: '5× OPTICAL · 10× HYBRID' },
+  { id: 'front', label: 'Front', zoom: '1×', mp: 32, detail: 'Autofocus · 4K60 video', spec: '32 MP · 4K60' },
 ]
 
 export interface FocalLength {
@@ -152,6 +154,34 @@ export const DISPLAY = {
   peakNits: 2800,
   colorBits: 10,
   pwm: 2160,
+}
+
+/** Film-safe physical dimensions of the body. */
+export const DIMENSIONS = {
+  bodyInches: 6.7,
+  widthM: 0.076,
+  heightM: 0.159,
+  thicknessMm: 7.8,
+  bezelsMm: 1.45,
+  weightG: 198,
+}
+
+export const FRAME_MATERIAL = 'Grade-5 titanium'
+
+/** Fabrication facts for the Aether A1 Ultra die. TOPS is inherited from PERFORMANCE. */
+export const CHIPSET = {
+  name: 'Aether A1 Ultra',
+  dieAreaMm2: 171,
+  processNm: 3,
+  cpuCores: 8,
+  gpuCores: 14,
+  cpuClockGhZ: 4.4,
+  npuTops: PERFORMANCE.npu.hero.value,
+}
+
+export const MEMORY = {
+  ramGb: 16,
+  type: 'LPDDR5X',
 }
 
 export const BATTERY = {

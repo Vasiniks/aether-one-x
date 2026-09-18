@@ -1,29 +1,28 @@
-import { ContactShadows, Environment, Lightformer } from '@react-three/drei'
+import { ContactShadows } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { MotionValue } from 'framer-motion'
 import { actAt } from '../story'
+import { ProductEnvironment } from './ProductEnvironment'
 import { DEFAULT_STAGE, STAGE_LIGHTING, type StageLightState } from './light-states'
 
 /**
- * The film's studio rig. Key / rim / fill / accent directional lights plus an
- * interior glow and an IBL environment all lerp continuously toward the
- * current act's design; the background is a soft vertical gradient that shifts
- * with the story. The phone is the bright object on a dark stage.
+ * The film's studio rig. Key / fill / rim / counter-rim / underside /
+ * accent directional lights plus an interior glow all lerp continuously toward
+ * the current act's design; the background is a soft vertical gradient that
+ * shifts with the story, and the IBL/PMREM environment rides next to it. The
+ * phone is the bright object on a dark stage.
  *
- * The environment is a coherent studio: one soft key panel, a long specular
- * strip for the machined edges, and a faint cool fill bounce. That is what
- * gives the metal its "baked in the studio" read, and since it is built from
- * actual Lightformers the reflections stay mathematically consistent with the
+ * The environment (ProductEnvironment) is a coherent studio: one soft key
+ * panel, a long thin rail that runs the titanium edges, a broad soft slab for
+ * the rear ceramic, and a faint cool fill bounce. That is what gives the metal
+ * its "baked in the studio" read, and since it is built from actual
+ * Lightformers the reflections stay mathematically consistent with the
  * directional rig that lights the scene.
  */
 
 const KEY_ELEVATION = 38 // degrees from horizon; high key keeps faces open.
-const ENV_KEY_INTENSITY = 1.15
-const ENV_STRIP_INTENSITY = 0.85
-const ENV_FILL_INTENSITY = 0.5
-const ENV_RIM_INTENSITY = 0.55
 
 /** 1x128 vertical gradient painted whenever the act's palette changes. */
 function makeBackground(top: string, base: string): THREE.CanvasTexture {
@@ -45,6 +44,7 @@ const _from = new THREE.Color()
 const _to = new THREE.Color()
 const _mix = new THREE.Color()
 const _accPos = new THREE.Vector3()
+const _intPos = new THREE.Vector3()
 
 export { DEFAULT_STAGE, STAGE_LIGHTING }
 export type { StageLightState }
@@ -61,6 +61,7 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
   const bgMat = useRef<THREE.MeshBasicMaterial>(null)
   const paletteKey = useRef('')
   const accPos = useRef(new THREE.Vector3(0, 0.1, 0.4))
+  const intPos = useRef(new THREE.Vector3(0, 0, 0))
 
   useFrame((state, delta) => {
     const act = actAt(progress.get()).id
@@ -74,13 +75,23 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
     if (fill.current) fill.current.intensity += (target.fill - fill.current.intensity) * d
     if (rim.current) rim.current.intensity += (target.rim - rim.current.intensity) * d
 
-    // Counter-key from the right so the far edge keeps a hairline of light even
-    // in tall, narrow stages; the under-bounce stops shadows from swallowing
-    // the bottom of the device during the hardware acts.
-    if (rimR.current) rimR.current.intensity += (target.rim * 0.32 - rimR.current.intensity) * d
-    if (under.current) under.current.intensity += (target.fill * 0.3 - under.current.intensity) * d
+    // Counter-rim keeps a hairline on the far edge, and the underside bounce
+    // stops shadows from swallowing the bottom of the device. Each has its own
+    // per-act value so dark hardware acts keep a lit floor and a silhouette.
+    if (rimR.current) rimR.current.intensity += (target.rimR - rimR.current.intensity) * d
+    if (under.current) under.current.intensity += (target.under - under.current.intensity) * d
 
-    if (interior.current) interior.current.intensity += (target.interiorGlow - interior.current.intensity) * d
+    // Interior glow moves to the act's energy center and shifts its color
+    // (amber over the die, teal at the cell) instead of pinning one static hue.
+    if (interior.current) {
+      interior.current.intensity += (target.interiorGlow - interior.current.intensity) * d
+      _from.copy(interior.current.color)
+      _to.set(target.interiorColor)
+      interior.current.color.copy(_mix.copy(_from).lerp(_to, d))
+      _intPos.set(target.interiorPosition[0], target.interiorPosition[1], target.interiorPosition[2])
+      intPos.current.lerp(_intPos, d)
+      interior.current.position.copy(intPos.current)
+    }
 
     // IBL response per act (the "environment" channel): metal reflections
     // follow the story (thin and cool during the x-ray, hot during the chip)
@@ -122,14 +133,8 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
       <directionalLight ref={under} position={[0.4, -0.6, 1.2]} intensity={0.16} color="#8aa3d0" />
       <pointLight ref={accent} position={[0, 0.1, 0.4]} intensity={0.2} distance={1.6} decay={2} color="#7fb0ff" />
       <pointLight ref={interior} position={[0, 0, 0]} intensity={0} distance={1.4} decay={2} color="#7fb4ff" />
-      <ContactShadows position={[0, -0.08, 0]} opacity={0.45} scale={5} blur={3.2} far={0.5} resolution={512} frames={90} />
-      <Environment frames={1} resolution={256}>
-        <Lightformer intensity={ENV_KEY_INTENSITY} position={[0, 3.4, 5]} scale={[10, 4, 1]} rotation-x={-Math.PI / 5} form="rect" color="#f0f5ff" />
-        <Lightformer intensity={ENV_STRIP_INTENSITY} position={[-4.5, 1.4, 2.5]} scale={[3.4, 8, 1]} rotation-y={Math.PI / 4} form="rect" color="#dcecff" />
-        <Lightformer intensity={ENV_FILL_INTENSITY} position={[5, -0.4, 1.8]} scale={[4, 5, 1]} rotation-y={-Math.PI / 2} form="rect" color="#9fb6df" />
-        <Lightformer intensity={0.4} position={[0, -3.6, 2]} scale={[8, 2, 1]} rotation-x={-Math.PI / 2} color="#e9f2ff" />
-        <Lightformer intensity={ENV_RIM_INTENSITY} position={[0, 2.4, -4]} scale={[8, 3, 1]} form="rect" color="#ffffff" />
-      </Environment>
+      <ContactShadows position={[0, -0.08, 0]} opacity={0.45} scale={5} blur={3.2} far={0.5} resolution={512} frames={1} />
+      <ProductEnvironment />
     </>
   )
 }

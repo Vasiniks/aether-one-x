@@ -20,16 +20,37 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   :root {
     /* The film's scroll runway: one very long shot. */
     --film-height: 1100vh;
+
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
   }
 
   @media (min-width: 1024px) {
     :root {
       --film-height: 1500vh;
+    }
+  }
+
+  @supports (height: 100svh) {
+    :root {
+      --film-height: 1100svh;
+    }
+
+    @media (min-width: 1024px) {
+      :root {
+        --film-height: 1500svh;
+      }
     }
   }
 
@@ -39,7 +60,6 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow-x: hidden;
   }
 
   section[id] {
@@ -66,6 +86,11 @@
   background: color-mix(in srgb, var(--color-surface) 82%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+section[aria-label*='product film'],
+section[aria-label*='product film'] > div {
+  touch-action: manipulation;
 }
 
 @media (prefers-reduced-transparency: reduce) {

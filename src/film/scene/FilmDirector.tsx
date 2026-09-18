@@ -8,7 +8,7 @@ import { centerBias, fitFov } from '../framing'
 import { FILM_MATERIALS } from './materials'
 import { getLiveScreen, type ScreenMode } from './display/LiveScreen'
 import { STAGE_LIGHTING } from '../lighting/light-states'
-import { setXrayActive, updatePick, hoverPointer } from '../xray/inspect'
+import { setXrayActive, updatePick, hoverPointer, tick as tickInspect, resyncPick } from '../xray/inspect'
 import type { InternalsControl } from './internals/Internals'
 
 const REDUCED =
@@ -136,23 +136,20 @@ export function FilmDirector({
     }
 
     // Responsive framing: hero keys carry a `fit` (share of viewport height);
-    // detail keys fall back to their authored macro fov. The operative fit
-    // value doubles as the blend weight, so fit↔roll boundaries ease toward
-    // the authored lens instead of snapping through a degenerate divide.
+    // detail keys fall back to their authored macro fov. The fitFov sampler
+    // always reads the authored pose (t.*) rather than the live damped g.* so
+    // the responsive FOV can never lag the phone and create a feedback loop.
     let targetFov = t.fov
     if (t.fit != null) {
-      const poseRx = g ? g.rotation.x : t.rx
-      const poseRy = g ? g.rotation.y : t.ry
-      const poseScale = g ? g.scale.x : t.scale
       const distance = cam.position.distanceTo(SCRATCH.look)
       const fitValue = fitFov({
         fit: t.fit,
         distance,
         aspect,
-        scale: poseScale,
-        rx: poseRx,
-        ry: poseRy,
-        px: g ? g.position.x : px,
+        scale: t.scale,
+        rx: t.rx,
+        ry: t.ry,
+        px: t.px,
         horizontalMargin: 0.86,
         maxFov: t.fovMax,
       })
@@ -197,7 +194,10 @@ export function FilmDirector({
     // never blend over nearer internals in the transparent pass. The rear shell
     // + ghost line still carry the silhouette.
     if (ghost) {
-      const frameAlpha = Math.max(0.02, 1 - s.shellGhost * 0.9 - s.chipFocus * 0.8)
+      const frameAlpha = Math.max(
+        0.02,
+        1 - s.shellGhost * 0.9 - s.chipFocus * 0.8 - s.cameraFocus * 0.5,
+      )
       if (Math.abs(frameAlpha - SCRATCH.lastFrameGhost) > 0.004) {
         SCRATCH.lastFrameGhost = frameAlpha
         for (const name of FRAME_MATS) {
@@ -254,6 +254,9 @@ export function FilmDirector({
       c.explodeBatt = s.explodeBatt
       c.chipFocus = s.chipFocus
       c.energy = s.energy
+      c.chipLift = s.chipLift
+      c.battLift = s.battLift
+      c.subjectDim = s.subjectDim
     }
 
     // Hover inspection: only during the x-ray / rebuild pass. Fine pointers
@@ -263,11 +266,15 @@ export function FilmDirector({
     const tapActive = performance.now() - hoverPointer.lastTap < 350
     const pickActive = XRAY_ACTS.has(act) && !REDUCED && (hoverPointer.fine || tapActive)
     setXrayActive(pickActive)
+    // Blend-in of hover highlights is frame-driven from the shared inspect
+    // module, so the die / cell glow never pops.
+    tickInspect(delta)
     if (pickActive && internalsGroup.current && hoverPointer.dirty) {
       hoverPointer.dirty = false
       _ray.setFromCamera(hoverPointer.ndc, cam)
       updatePick(_ray, cam, internalsGroup.current)
     } else if (!pickActive) {
+      resyncPick(cam)
       updatePick(_ray, cam, null)
     }
   })

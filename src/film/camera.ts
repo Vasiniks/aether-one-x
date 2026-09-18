@@ -56,9 +56,11 @@ function reclockedCurveParam(p: number): number {
 
 const POS_PTS = KEYS.map((k) => new THREE.Vector3(k.cx, k.cy, k.cz))
 const TGT_PTS = KEYS.map((k) => new THREE.Vector3(k.tx, k.ty, k.tz))
-/** Camera travel curves; built once at module load (pure math, no DOM). */
-const POS_CURVE = new THREE.CatmullRomCurve3(POS_PTS, false, 'catmullrom', 0.5)
-const TGT_CURVE = new THREE.CatmullRomCurve3(TGT_PTS, false, 'catmullrom', 0.5)
+/** Camera travel curves; built once at module load (pure math, no DOM). The
+ * position curve is loosened to 0.32 and the target to 0.42 so the eye leads
+ * and the aim settles slightly later - fewer overshoots at act boundaries. */
+const POS_CURVE = new THREE.CatmullRomCurve3(POS_PTS, false, 'catmullrom', 0.32)
+const TGT_CURVE = new THREE.CatmullRomCurve3(TGT_PTS, false, 'catmullrom', 0.42)
 
 const OUT: FilmSample = {
   pos: new THREE.Vector3(),
@@ -95,11 +97,14 @@ export function sampleFilm(p: number): FilmSample {
   OUT.py = a.py + (b.py - a.py) * t
   OUT.fov = a.fov + (b.fov - a.fov) * t
 
-  // Responsive framing overrides the authored fov where keyframes set a fit.
-  const fitA = a.fit ?? b.fit
-  const fitB = b.fit ?? a.fit
-  OUT.fit = fitA == null && fitB == null ? null : (fitA ?? 0) + ((fitB ?? 0) - (fitA ?? 0)) * t
-  OUT.fovMax = (a.fovMax ?? b.fovMax ?? 52) + ((b.fovMax ?? a.fovMax ?? 52) - (a.fovMax ?? b.fovMax ?? 52)) * t
+  // Responsive framing overrides the authored fov only where BOTH endpoints
+  // of a segment carry a fit target - a single authority per segment, so the
+  // lens never flips between fit-pinned and authored mid-travel.
+  const fit = a.fit != null && b.fit != null ? a.fit + (b.fit - a.fit) * t : null
+  OUT.fit = fit
+  // Upper FOV clamp stays one constant per region (stair-free): 48 through the
+  // chip dive so the macro never rides a widening clamp, 52 everywhere else.
+  OUT.fovMax = p >= 0.4 && p <= 0.52 ? 48 : 52
 
   return OUT
 }
@@ -118,6 +123,14 @@ export interface FilmStates {
   explodeBatt: number
   /** 0..1 if the A1 Ultra is the focused subject. */
   chipFocus: number
+  /** 0..1 the A1 Ultra quarry is lifted out of the board plane (macro). */
+  chipLift: number
+  /** 0..1 the battery cell pulls toward the camera at the energy climax. */
+  battLift: number
+  /** 0..1 the rest of the internals step back while one subject owns the frame. */
+  subjectDim: number
+  /** 0..1 the camera has dived on the physical lens barrels (camera macro). */
+  cameraFocus: number
   /** 0..1 partial interior glow during the energy story. */
   energy: number
   /** 0..1 display brightness of the live screen. */
@@ -135,29 +148,59 @@ function ramplike(p: number, in1: number, in2: number, out1: number, out2: numbe
   return Math.min(up, 1 - down)
 }
 
+/** Scratch film-state object (zero allocation per frame). */
+const STATES: FilmStates = {
+  shellGhost: 0,
+  shellSplit: 0,
+  internalOpacity: 0,
+  explodeXray: 0,
+  explodeBatt: 0,
+  chipFocus: 0,
+  chipLift: 0,
+  battLift: 0,
+  subjectDim: 0,
+  cameraFocus: 0,
+  energy: 0,
+  screenOn: 0,
+}
+
 export function computeFilmStates(p: number): FilmStates {
+  const cameraFocus = ramplike(p, 0.635, 0.665, 0.705, 0.73)
+  const chipLift = ramplike(p, 0.34, 0.37, 0.455, 0.485)
+  const battLift = ramplike(p, 0.893, 0.902, 0.918, 0.926)
+
   // All x-ray windows close by 0.52 (end of rebuild) so the shell re-solidifies
   // over a home stack, not half-floating parts.
   const explodeXray = ramplike(p, 0.27, 0.32, 0.485, 0.515)
   // Wide enough to hold the cell-lift beat so the energy climax reads.
   const explodeBatt = ramplike(p, 0.885, 0.893, 0.905, 0.918)
-  return {
-    shellGhost: Math.min(
-      1,
-      ramplike(p, 0.25, 0.31, 0.44, 0.52) + ramplike(p, 0.875, 0.9, 0.905, 0.925),
-    ),
-    // Glass + back part from the frame while the internals are on stage.
-    shellSplit: ramplike(p, 0.29, 0.34, 0.47, 0.515),
-    internalOpacity: Math.min(
-      1,
-      ramplike(p, 0.26, 0.31, 0.5, 0.518) + ramplike(p, 0.88, 0.9, 0.905, 0.93),
-    ),
-    explodeXray,
-    explodeBatt,
-    // Focus peaks with the dive into the cavity and fades only as the stack
-    // repacks, so the macro reads as one deliberate held beat.
-    chipFocus: ramplike(p, 0.36, 0.445, 0.49, 0.525),
-    energy: ramplike(p, 0.885, 0.9, 0.91, 0.93),
-    screenOn: ramplike(p, 0.03, 0.08, 1, 1),
-  }
+
+  STATES.shellGhost = Math.min(
+    1,
+    ramplike(p, 0.25, 0.31, 0.44, 0.52) + ramplike(p, 0.875, 0.9, 0.905, 0.925),
+  )
+  // Glass + back part from the frame while the internals are on stage.
+  STATES.shellSplit = ramplike(p, 0.29, 0.34, 0.47, 0.515)
+  STATES.internalOpacity = Math.min(
+    1,
+    ramplike(p, 0.26, 0.31, 0.5, 0.518) + ramplike(p, 0.88, 0.9, 0.905, 0.93),
+  )
+  STATES.explodeXray = explodeXray
+  STATES.explodeBatt = explodeBatt
+  // Focus peaks with the dive into the cavity and fades only as the stack
+  // repacks, so the macro reads as one deliberate held beat.
+  STATES.chipFocus = ramplike(p, 0.36, 0.445, 0.49, 0.525)
+  STATES.chipLift = chipLift
+  STATES.battLift = battLift
+  // The rest of the stack steps back while a subject owns the frame: chip die
+  // and battery hero each dim their surroundings slightly.
+  STATES.subjectDim = Math.min(
+    1,
+    ramplike(p, 0.39, 0.42, 0.46, 0.485) + ramplike(p, 0.893, 0.905, 0.92, 0.928),
+  )
+  STATES.cameraFocus = cameraFocus
+  STATES.energy = ramplike(p, 0.885, 0.9, 0.91, 0.93)
+  STATES.screenOn = ramplike(p, 0.03, 0.08, 1, 1)
+
+  return STATES
 }

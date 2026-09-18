@@ -40,7 +40,7 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-50 transition-all duration-300',
+        'fixed inset-x-0 top-0 z-50 transition-all duration-300 pt-[var(--sat)]',
         scrolled ? 'glass border-b border-white/10' : 'border-b border-transparent',
       )}
     >
@@ -49,7 +49,8 @@ export function Navbar() {
       </a>
       <div
         className={cn(
-          'mx-auto flex max-w-7xl items-center justify-between px-5 transition-all duration-300 sm:px-8',
+          'mx-auto flex max-w-7xl items-center justify-between transition-all duration-300',
+          'pl-[calc(1.25rem+var(--sal))] pr-[calc(1.25rem+var(--sar))] sm:pl-[calc(2rem+var(--sal))] sm:pr-[calc(2rem+var(--sar))]',
           scrolled ? 'h-16' : 'h-20',
         )}
       >
@@ -112,7 +113,7 @@ export function Navbar() {
             aria-expanded={menuOpen}
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             onClick={() => setMenuOpen((open) => !open)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-ink transition-colors hover:bg-white/5 lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-ink transition-colors hover:bg-white/5 lg:hidden"
           >
             {menuOpen ? <X size={20} /> : <List size={20} />}
           </button>
@@ -120,7 +121,7 @@ export function Navbar() {
       </div>
 
       {menuOpen ? (
-        <div className="fixed inset-0 top-16 z-40 flex flex-col bg-night px-6 pb-10 pt-6 lg:hidden">
+        <div className="fixed inset-0 top-[calc(4rem+var(--sat))] z-40 flex flex-col overflow-y-auto bg-night px-6 pt-6 pb-[calc(2.5rem+var(--sab))] lg:hidden">
           <nav aria-label="Mobile">
             <ul className="flex flex-col divide-y divide-white/10 border-y border-white/10">
               {LINKS.map((link, index) => (

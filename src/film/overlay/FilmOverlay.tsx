@@ -1,12 +1,22 @@
 import { AnimatePresence, motion, useReducedMotion, useTransform } from 'motion/react'
 import type { MotionValue } from 'motion/react'
 import { Suspense, lazy } from 'react'
-import { ACTS } from '../story'
+import { ACTS, type ActId } from '../story'
 import { useChapter } from './useChapter'
 import { CHAPTERS, type ChapterCopy } from './chapters'
-import { NoteLine, NumeralBlock, RevealWindow, TechRuler, TitleLine, XRayRead } from './primitives'
+import {
+  DisplayBar,
+  EditorialStat,
+  NoteLine,
+  RevealWindow,
+  TierSeries,
+  TitleLine,
+  Wordmark,
+  XRayRead,
+} from './primitives'
 import { ChipAnnotations } from './ChipAnnotations'
 import { Finale } from './Finale'
+import { DIMENSIONS } from '../../data/product'
 
 const AetherOSPhone = lazy(() =>
   import('../../components/PhoneOS/AetherOSPhone').then((m) => ({ default: m.AetherOSPhone })),
@@ -18,6 +28,31 @@ const AetherOSPhone = lazy(() =>
  * AetherOS moment and the finale purchase beat. React only re-renders at act
  * boundaries; every stagger inside an act is a motion value.
  */
+
+/** Where each act's caption sits, anchored into the open half of the frame. */
+const WRAP: Record<ActId, string> = {
+  arrival: 'absolute top-[calc(5rem+env(safe-area-inset-top))] right-5 left-5 flex flex-col items-start px-1 sm:left-8 lg:left-14',
+  settle: 'absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] right-5 left-5 flex flex-col items-start px-1 sm:left-8 lg:left-14',
+  approach:
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-[44vw] lg:right-16',
+  xray: 'absolute inset-x-0 bottom-[calc(8rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:right-8 lg:left-16 lg:right-[44vw]',
+  chip: 'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-16',
+  rebuild:
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-center px-5 text-center',
+  camera:
+    'absolute top-[15%] right-5 left-5 flex flex-col items-start px-1 sm:left-8 lg:left-[44vw] lg:right-16',
+  display:
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-center px-4 text-center',
+  storage:
+    'absolute inset-x-0 bottom-[calc(7rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-[42vw] lg:right-20',
+  battery:
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:right-8 lg:left-20 lg:right-[43vw]',
+  software:
+    'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-16',
+  ai: 'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-start px-5 sm:left-8 lg:left-[44vw] lg:right-16',
+  final: 'absolute inset-0',
+}
+
 export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
   const reduce = useReducedMotion()
   const { act, local } = useChapter(progress)
@@ -30,15 +65,6 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
 
   const isSoftware = act.id === 'software'
   const isFinale = act.id === 'final'
-
-  const wrapperClass =
-    isFinale
-      ? 'absolute inset-0'
-      : align === 'center' || align === 'bottom'
-        ? 'absolute inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col items-center justify-end px-4 text-center'
-        : align === 'right'
-          ? 'absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] left-5 right-5 flex flex-col items-start sm:left-8 lg:left-[40vw] lg:right-14'
-          : 'absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 left-5 flex flex-col items-start sm:right-8 lg:left-14 lg:right-[40vw]'
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
@@ -63,7 +89,7 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -14, transition: { duration: 0.18, ease: 'easeIn' } }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
-            className={wrapperClass}
+            className={isFinale ? WRAP.final : WRAP[act.id]}
           >
             {isFinale ? <Finale local={local} /> : <CoreCaption local={local} copy={copy} align={align} />}
           </motion.div>
@@ -159,7 +185,7 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-/** Per-act spec composition, staggered against the act-local motion value. */
+/** Per-act editorial composition, staggered against the act-local motion value. */
 function CoreCaption({
   local,
   copy,
@@ -170,28 +196,96 @@ function CoreCaption({
   align: 'center' | 'bottom' | 'left' | 'right'
 }) {
   const r = copy.reveal ?? {}
-  const center = align === 'center' || align === 'bottom'
-  const sideAlign = align === 'right' ? 'right' : 'left'
+  const centered = align === 'center' || align === 'bottom'
 
-  return (
-    <div className={center ? 'flex flex-col items-center text-center' : 'flex flex-col items-start text-left'}>
-      {copy.num ? (
-        <NumeralBlock local={local} from={r.num ?? 0.15} unitFrom={r.unit} num={copy.num} unit={copy.unit} align={center ? 'center' : sideAlign} />
-      ) : null}
-
-      {copy.title ? <TitleLine local={local} from={r.title ?? 0.1} title={copy.title} className={copy.num ? 'mt-3' : ''} /> : null}
-
-      {copy.tech?.length ? (
-        <TechRuler local={local} from={r.tech ?? 0.45} rows={copy.tech} className={center ? 'mt-6' : 'mt-5'} />
-      ) : null}
-
-      {copy.note ? <NoteLine local={local} from={r.note ?? 0.6} note={copy.note} className="mt-4" /> : null}
-
-      {copy.extra === 'xray' ? (
-        <RevealWindow local={local} from={0.5} to={0.62} className="mt-6">
-          <XRayRead x="0.076 m" y="0.159 m" z="7.8 mm" />
-        </RevealWindow>
-      ) : null}
-    </div>
-  )
+  switch (copy.layout) {
+    case 'wordmark':
+      return (
+        <Wordmark
+          local={local}
+          from={r.title ?? 0.1}
+          ruleFrom={r.rule ?? r.title ?? 0.24}
+          title={copy.title}
+          note={copy.note}
+          noteFrom={r.note}
+        />
+      )
+    case 'stat':
+      return (
+        <EditorialStat
+          local={local}
+          headline={copy.title}
+          headlineFrom={r.title ?? 0.1}
+          num={copy.num}
+          numFrom={r.num}
+          numUnit={copy.numUnit}
+          unitFrom={r.unit}
+          rows={copy.rows}
+          rowsFrom={r.rows}
+          note={copy.note}
+          noteFrom={r.note}
+          ruleFrom={r.rule ?? 0.24}
+        />
+      )
+    case 'display':
+      return (
+        <DisplayBar
+          local={local}
+          title={copy.title}
+          titleFrom={r.title ?? 0.08}
+          num={copy.num}
+          numFrom={r.num}
+          numUnit={copy.numUnit}
+          unitFrom={r.unit}
+          rows={copy.rows}
+          rowsFrom={r.rows}
+        />
+      )
+    case 'tiers':
+      return (
+        <TierSeries
+          local={local}
+          title={copy.title}
+          titleFrom={r.title ?? 0.08}
+          tiers={copy.tiers ?? []}
+          from={r.tiers ?? 0.18}
+          note={copy.note}
+          noteFrom={r.note}
+        />
+      )
+    case 'inspect':
+      return (
+        <div className="flex flex-col items-start">
+          <TitleLine local={local} from={r.title ?? 0.12} title={copy.title} />
+          {copy.note ? <NoteLine local={local} from={r.note ?? 0.5} note={copy.note} className="mt-4" /> : null}
+          {copy.extra === 'xray' ? (
+            <RevealWindow local={local} from={0.62} to={0.72} className="mt-6">
+              <XRayRead
+                x={`${DIMENSIONS.widthM} m`}
+                y={`${DIMENSIONS.heightM} m`}
+                z={`${DIMENSIONS.thicknessMm} mm`}
+              />
+            </RevealWindow>
+          ) : null}
+        </div>
+      )
+    case 'chiplead':
+      return (
+        <div className="flex flex-col items-start">
+          <TitleLine local={local} from={r.title ?? 0.1} title={copy.title} />
+          {copy.note ? <NoteLine local={local} from={r.note ?? 0.6} note={copy.note} className="mt-4" /> : null}
+        </div>
+      )
+    default:
+      return (
+        <div
+          className={
+            centered ? 'flex flex-col items-center text-center' : 'flex flex-col items-start text-left'
+          }
+        >
+          <TitleLine local={local} from={r.title ?? 0.1} title={copy.title} />
+          {copy.note ? <NoteLine local={local} from={r.note ?? 0.5} note={copy.note} className="mt-3" /> : null}
+        </div>
+      )
+  }
 }

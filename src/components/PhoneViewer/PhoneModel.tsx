@@ -2,8 +2,8 @@ import { RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import type { FocusLensId } from './PhoneConfig'
-import { usePhoneConfig } from './PhoneConfig'
+import { CameraAssembly } from './CameraAssembly'
+import { usePhoneConfig, type FocusLensId } from './PhoneConfig'
 import {
   FINISH_COLORS,
   FINISH_PARAMS,
@@ -37,34 +37,29 @@ const DISPLAY_PANEL = { depth: 0.0011, z: 0.00215 }
  * buried behind an opaque slab face.
  */
 const FRAME_BODY_DEPTH = 0.0042
-const FRAME_BODY_Z = -0.0018
 const RING_BASE_Z = 0.0004
 const RING_DEPTH = 0.0035
 
 /** Raised rear camera plate, seated so it reads ~1mm proud of the ceramic. */
 const ISLAND = { size: 0.036, x: -0.023, y: 0.05, depth: 0.0018 }
 const ISLAND_FACE_Z = -0.0028
-const LENS_Z = -0.0046
 
 /** Flash LED, tucked to the right of the island against the ceramic. */
 const FLASH = { x: -0.005, y: 0.0665, radius: 0.0026 }
 
+/** Stepped titanium plinth the camera island rises from: roots the plate into
+ * the ceramic so it reads as seats, never a floating puck. */
+const ISLAND_SEAT = { size: 0.041, depth: 0.0012 }
+const ISLAND_SEAT_Z = -0.0025
+
+/** Bottom-edge hardware: chamfered USB-C surround, eject pinhole, grille. */
+const PORT_COLLAR = { w: 0.0064, h: 0.0026, r: 0.0013, depth: 0.0005 }
+const GRILLE_SLOT = { w: 0.00055, h: 0.0003, depth: 0.0012 }
+const GRILLE_XS = [0.0076, 0.0091, 0.0106, 0.0121]
+
 /** Half span helpers for edge details. */
 const SX = DIM.w / 2
 const SY = DIM.h / 2
-
-interface LensSpec {
-  key: FocusLensId
-  x: number
-  y: number
-  radius: number
-}
-
-const LENSES: LensSpec[] = [
-  { key: 'main', x: -0.0065, y: 0.0065, radius: 0.0076 },
-  { key: 'ultra', x: 0.008, y: 0.0068, radius: 0.0061 },
-  { key: 'tele', x: 0.0005, y: -0.0072, radius: 0.0061 },
-]
 
 /** Procedurally-built, finish-reactive phone model. Pure geometry and materials. */
 
@@ -112,9 +107,17 @@ export function PhoneModel({ materials, groups, animateFocusRing = true }: Phone
   })
 
   const islandGeometry = useMemo(() => createSquircleGeometry(ISLAND.size, ISLAND.size, ISLAND.depth), [])
+  const islandSeatGeometry = useMemo(
+    () => createSquircleGeometry(ISLAND_SEAT.size, ISLAND_SEAT.size, ISLAND_SEAT.depth),
+    [],
+  )
+  const frameBodyGeometry = useMemo(() => createFrameBodyGeometry(), [])
   const frameRingGeometry = useMemo(() => createFrameRingGeometry(), [])
-  const lensRefs = useRef<Partial<Record<FocusLensId, THREE.Group>>>({})
-  const focusRef = useRef<{ key: FocusLensId | null; blend: number }>({ key: focusLens, blend: 0 })
+const lensRefs = useRef<Partial<Record<FocusLensId, THREE.Group>>>({})
+const focusRef = useRef<{ key: FocusLensId | null; blend: number }>({ key: focusLens, blend: 0 })
+/** Order groups are iterated for the active focus ring; the lens groups live
+ * inside CameraAssembly and publish themselves through lensRefs. */
+const LENSES: { key: FocusLensId }[] = [{ key: 'main' }, { key: 'ultra' }, { key: 'tele' }]
 
   useFrame((state, delta) => {
     const targetColors = FINISH_COLORS[finish]
@@ -166,16 +169,12 @@ export function PhoneModel({ materials, groups, animateFocusRing = true }: Phone
     <group>
       {/* Titanium frame + machined edge hardware */}
       <group ref={groups?.frame}>
-        {/* Solid rear+midsection body: the machined cavity the display sits in. */}
-        <RoundedBox
-          args={[DIM.w, DIM.h, FRAME_BODY_DEPTH]}
-          radius={0.004}
-          smoothness={12}
-          position={[0, 0, FRAME_BODY_Z]}
-          castShadow
-        >
+        {/* Solid rear+midsection body: a chamfered titanium spine the display
+            cavity sits in. Beveled front/rear rims make the side rails catch
+            light like machined metal and step crisply into the ceramic. */}
+        <mesh geometry={frameBodyGeometry} castShadow>
           <primitive object={set.frame} attach="material" />
-        </RoundedBox>
+        </mesh>
         {/* Perimeter bezel ring with a display opening. Segment-tight so the
             rounded corners match the body silhouette from every angle. */}
         <mesh geometry={frameRingGeometry} castShadow>
@@ -197,8 +196,14 @@ export function PhoneModel({ materials, groups, animateFocusRing = true }: Phone
           <primitive object={set.back} attach="material" />
         </RoundedBox>
 
+        {/* Stepped titanium plinth: the island's machined seat against the ceramic,
+            rendered under the island so the two read as one assembly. */}
+        <mesh geometry={islandSeatGeometry} position={[ISLAND.x, ISLAND.y, ISLAND_SEAT_Z]} castShadow>
+          <primitive object={set.frame} attach="material" />
+        </mesh>
+
         {/* Rear camera system */}
-        <CameraIsland materials={set} geometry={islandGeometry} lensRefs={lensRefs} />
+        <CameraAssembly materials={set} geometry={islandGeometry} lensRefs={lensRefs} />
         <FlashModule materials={set} />
 
         {/* Brand decal (rear) */}
@@ -239,84 +244,6 @@ export function PhoneModel({ materials, groups, animateFocusRing = true }: Phone
   )
 }
 
-/** The raised rear camera plate plus its three physical lens assemblies. */
-function CameraIsland({
-  materials,
-  geometry,
-  lensRefs,
-}: {
-  materials: ReturnType<typeof createPhoneMaterials>
-  geometry: THREE.BufferGeometry
-  lensRefs: MutableRefObject<Partial<Record<FocusLensId, THREE.Group>>>
-}) {
-  return (
-    <group>
-      <mesh geometry={geometry} position={[ISLAND.x, ISLAND.y, ISLAND_FACE_Z]} castShadow>
-        <primitive object={materials.island} attach="material" />
-      </mesh>
-
-      {LENSES.map((lens) => (
-        <group
-          key={lens.key}
-          position={[ISLAND.x + lens.x, ISLAND.y + lens.y, LENS_Z]}
-          ref={(node) => {
-            if (node) lensRefs.current[lens.key] = node
-          }}
-        >
-          <LensAssembly r={lens.radius} materials={materials} />
-        </group>
-      ))}
-    </group>
-  )
-}
-
-/**
- * One physical optic: a machined collar, stepped bezel, glass, inner barrel,
- * aperture and a faint deep sensor reflection. Everything shares the lens axis
- * (+z = into the body) so depth reads without sorting artifacts.
- */
-function LensAssembly({ r, materials }: { r: number; materials: ReturnType<typeof createPhoneMaterials> }) {
-  return (
-    <>
-      {/* Machined outer collar */}
-      <mesh>
-        <torusGeometry args={[r, 0.0007, 16, 72]} />
-        <primitive object={materials.lensRing} attach="material" />
-      </mesh>
-      {/* Stepped bezel */}
-      <mesh position={[0, 0, -0.00022]}>
-        <torusGeometry args={[r * 0.88, 0.0003, 12, 64]} />
-        <primitive object={materials.lensRing} attach="material" />
-      </mesh>
-      {/* Lens glass, slightly proud of the plate's back face */}
-      <mesh position={[0, 0, -0.00045]} rotation={[0, Math.PI, 0]}>
-        <circleGeometry args={[r * 0.8, 72]} />
-        <primitive object={materials.lensGlass} attach="material" />
-      </mesh>
-      {/* Inner barrel wall seen through the glass edge */}
-      <mesh position={[0, 0, 0.0001]}>
-        <torusGeometry args={[r * 0.68, 0.00028, 12, 64]} />
-        <primitive object={materials.lensBarrel} attach="material" />
-      </mesh>
-      {/* Aperture (faces the rear so it reads hollow from the macro) */}
-      <mesh position={[0, 0, 0.0002]} rotation={[0, Math.PI, 0]}>
-        <circleGeometry args={[r * 0.52, 64]} />
-        <primitive object={materials.lensCavity} attach="material" />
-      </mesh>
-      {/* Deep sensor glint */}
-      <mesh position={[0, 0, 0.0003]} rotation={[0, Math.PI, 0]}>
-        <circleGeometry args={[r * 0.14, 48]} />
-        <primitive object={materials.sensorGlint} attach="material" />
-      </mesh>
-      {/* Focus highlight ring */}
-      <mesh name="focus-ring" position={[0, 0, -0.00038]}>
-        <torusGeometry args={[r * 0.94, 0.00012, 12, 72]} />
-        <primitive object={materials.focusRing} attach="material" />
-      </mesh>
-    </>
-  )
-}
-
 /** Twin-LED flash module beside the camera island. */
 function FlashModule({ materials }: { materials: ReturnType<typeof createPhoneMaterials> }) {
   return (
@@ -336,9 +263,14 @@ function FlashModule({ materials }: { materials: ReturnType<typeof createPhoneMa
 /** Small hardware that lives on the frame edges: buttons, antenna seams,
  * SIM tray, USB-C, earpiece grille and mic openings. */
 function EdgeDetails({ set }: { set: ReturnType<typeof createPhoneMaterials> }) {
+  const portCollarGeo = useMemo(
+    () => createRoundedRectGeometry(PORT_COLLAR.w, PORT_COLLAR.h, PORT_COLLAR.r, PORT_COLLAR.depth, 0.00015, 0.00013),
+    [],
+  )
   return (
     <group>
-      {/* Side buttons (power + rocker), each resting in a milled pocket */}
+      {/* Side buttons (power + rocker), each resting in a milled pocket on a
+          chamfered titanium seat */}
       <ButtonPocket set={set} y={0.02} height={0.0125} />
       <ButtonPocket set={set} y={0.047} height={0.006} />
       <ButtonPocket set={set} y={0.058} height={0.0055} />
@@ -355,15 +287,25 @@ function EdgeDetails({ set }: { set: ReturnType<typeof createPhoneMaterials> }) 
         <primitive object={set.simTray} attach="material" />
       </mesh>
 
-      {/* USB-C receptacle at the bottom center */}
-      <mesh position={[0, -SY - 0.00005, 0]}>
+      {/* Bottom edge: chamfered metal collar around a recessed USB-C opening,
+          a SIM eject pinhole and a 4-slot speaker grille */}
+      <mesh geometry={portCollarGeo} position={[0, -SY - 0.0002, 0]}>
+        <primitive object={set.simTray} attach="material" />
+      </mesh>
+      <mesh position={[0, -SY - 0.00012, 0]}>
         <boxGeometry args={[0.0048, 0.0008, 0.0017]} />
         <primitive object={set.port} attach="material" />
       </mesh>
-      <mesh position={[0, -SY - 0.00045, 0]}>
-        <boxGeometry args={[0.0036, 0.0004, 0.0006]} />
-        <primitive object={set.simTray} attach="material" />
+      <mesh position={[0.0051, -SY + 0.0002, 0.0016]}>
+        <cylinderGeometry args={[0.0004, 0.0004, 0.00034, 12]} />
+        <primitive object={set.port} attach="material" />
       </mesh>
+      {GRILLE_XS.map((x) => (
+        <mesh key={x} position={[x, -SY + 0.0003, 0]}>
+          <boxGeometry args={[GRILLE_SLOT.w, GRILLE_SLOT.h, GRILLE_SLOT.depth]} />
+          <primitive object={set.speaker} attach="material" />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -401,7 +343,8 @@ function FrontGlassDetails({ set }: { set: ReturnType<typeof createPhoneMaterial
   )
 }
 
-/** A machined button stepping out of the titanium rail. */
+/** A machined button keycap stepping out of the titanium rail: dark milled
+ * bed, a chamfered seating flange fused to the rail, then the rounded cap. */
 function ButtonPocket({
   set,
   y,
@@ -411,18 +354,30 @@ function ButtonPocket({
   y: number
   height: number
 }) {
+  const flangeGeo = useMemo(
+    () => createRoundedRectGeometry(0.0005, height + 0.002, 0.0004, 0.0017, 0.00012, 0.00012),
+    [height],
+  )
   return (
     <group position={[SX + 0.0004, y, -0.0012]}>
       {/* Milled pocket behind the button */}
-      <mesh position={[0.00028, 0, 0.0006]}>
-        <boxGeometry args={[0.00055, height + 0.0016, 0.0026]} />
+      <mesh position={[0, 0, 0.0006]}>
+        <boxGeometry args={[0.0007, height + 0.0016, 0.0028]} />
         <primitive object={set.antenna} attach="material" />
       </mesh>
-      {/* Button */}
-      <mesh position={[0.00055, 0, 0.0007]}>
-        <boxGeometry args={[0.0006, height, 0.0015]} />
-        <primitive object={set.button} attach="material" />
+      {/* Chamfered titanium seating flange fused into the rail face */}
+      <mesh geometry={flangeGeo} position={[0.00035, 0, 0.0006]}>
+        <primitive object={set.frame} attach="material" />
       </mesh>
+      {/* Rounded machined keycap, proud of the seat */}
+      <RoundedBox
+        args={[0.0005, height, 0.0014]}
+        radius={Math.min(0.00022, height / 2)}
+        smoothness={4}
+        position={[0.0007, 0, 0.0006]}
+      >
+        <primitive object={set.button} attach="material" />
+      </RoundedBox>
     </group>
   )
 }
@@ -431,7 +386,7 @@ function ButtonPocket({
 function Seam({ set, x, y }: { set: ReturnType<typeof createPhoneMaterials>; x: number; y: number }) {
   return (
     <mesh position={[x, y, 0]}>
-      <boxGeometry args={[0.00028, 0.0028, DIM.t]} />
+      <boxGeometry args={[0.00026, 0.003, DIM.t]} />
       <primitive object={set.antenna} attach="material" />
     </mesh>
   )
@@ -484,10 +439,10 @@ function createFrameRingGeometry(): THREE.BufferGeometry {
   const geometry = new THREE.ExtrudeGeometry(outer, {
     depth: RING_DEPTH,
     bevelEnabled: true,
-    bevelSize: 0.00012,
-    bevelThickness: 0.0001,
-    bevelSegments: 2,
-    curveSegments: 16,
+    bevelSize: 0.00016,
+    bevelThickness: 0.00013,
+    bevelSegments: 3,
+    curveSegments: 20,
     steps: 1,
   })
   geometry.translate(0, 0, RING_BASE_Z)
@@ -513,4 +468,59 @@ function roundedRectPath(
   path.quadraticCurveTo(x, y + h, x, y + h - c)
   path.lineTo(x, y + c)
   path.quadraticCurveTo(x, y, x + c, y)
+}
+
+/**
+ * Chamfered solid frame body: the extruded rounded-rect spine with beveled
+ * front/rear rims. The outer silhouette lands exactly on DIM, the rear rim
+ * sits flush with the ceramic back face, and each rail reads as a flat
+ * machined plane between two crisp chamfer steps.
+ */
+function createFrameBodyGeometry(): THREE.BufferGeometry {
+  const bevelSize = 0.0007
+  const shape = new THREE.Shape()
+  roundedRectPath(
+    shape,
+    -DIM.w / 2 + bevelSize,
+    -DIM.h / 2 + bevelSize,
+    DIM.w - bevelSize * 2,
+    DIM.h - bevelSize * 2,
+    0.0035,
+  )
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: FRAME_BODY_DEPTH - bevelSize * 2,
+    bevelEnabled: true,
+    bevelSize,
+    bevelThickness: 0.0005,
+    bevelSegments: 3,
+    curveSegments: 20,
+    steps: 1,
+  })
+  // Rear rim flush on the ceramic back face; the front rim meets the bezel.
+  geometry.translate(0, 0, BACK_FACE + 0.0005)
+  return geometry
+}
+
+/** Centered rounded-rectangle extrusion with optional chamfered end lips. */
+function createRoundedRectGeometry(
+  w: number,
+  h: number,
+  radius: number,
+  depth: number,
+  bevelSize = 0,
+  bevelThickness = 0,
+): THREE.BufferGeometry {
+  const shape = new THREE.Shape()
+  roundedRectPath(shape, -w / 2, -h / 2, w, h, radius)
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: bevelSize > 0,
+    bevelSize,
+    bevelThickness,
+    bevelSegments: 2,
+    curveSegments: 16,
+    steps: 1,
+  })
+  geometry.translate(0, 0, -depth / 2)
+  return geometry
 }

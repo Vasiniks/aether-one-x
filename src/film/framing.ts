@@ -8,6 +8,12 @@
  * target into a vertical FOV that also guarantees the phone's horizontal span
  * never leaves the frame, so the same composition holds on a 13" laptop, a
  * 5K desktop and an ultrawide in equal measure.
+ *
+ * Ultrawides are special: the phone reads small and centered with dead space
+ * on both sides when framed like a 16:9 monitor. Here the phone is composed
+ * larger (see `formatFit`) and (optionally) offset into the horizontal room
+ * (see `frameOffset`) so the open space becomes the caption zone instead of
+ * a sea of black.
  */
 
 /** Physical bounds of the Aether One X body (meters). */
@@ -36,7 +42,12 @@ export interface FitOptions {
   scale: number
   rx: number
   ry: number
-  /** Author frame so nothing ever clips horizontally (0..1 margin). */
+  /**
+   * Author frame so nothing ever clips horizontally (0..1 margin).
+   * When omitted the default is 0.86 on standard screens and tightens
+   * smoothly toward 0.78 on ultrawides so the phone can use more of the
+   * wide frame. Pass explicitly to override.
+   */
   horizontalMargin?: number
   /** Off-center world offset (x, meters) folded into the width guard. */
   px?: number
@@ -45,27 +56,50 @@ export interface FitOptions {
 }
 
 /**
- * Tier policy: the authored `fit` is a share of viewport height, but the
- * composition has to survive every monitor. On ultrawide the phone should read
- * larger against a taller drum; on narrow phones the fit backs off so captions
- * and hardware never crowd the vertical edges. Monotone in aspect, so no tier
- * boundary ever jumps.
+ * Tier policy - smooth linear interpolation between aspect breakpoints.
+ *
+ * The authored `fit` is a share of viewport height, but the composition has
+ * to survive every monitor. Monotone in aspect, so no tier boundary jumps.
+ *
+ *   aspect ≥ 3.50 → 1.16  32:9 super-ultrawide: hero fills the drum
+ *   aspect ≥ 2.40 → 1.12  21:9 ultrawide: phone reads larger, fits the wide frame
+ *   aspect ≥ 1.78 → 1.00  16:9 desktop: authored
+ *   aspect ≥ 1.20 → 0.95  tablets / small desktops
+ *   aspect ≥ 0.75 → 0.90  portrait-ish phones
+ *   aspect  < 0.75 → 0.82 very tall/narrow: chrome + caption clearance
  */
 export function formatFit(aspect: number, fit: number): number {
-  let tier: number
-  if (aspect >= 2.55) tier = 1.12 // 32:9 and beyond: hero fills the drum
-  else if (aspect >= 1.9) tier = 1.0 // 16:9-ish desktop: authored
-  else if (aspect >= 1.2) tier = 0.97 // tablets / small desktops
-  else if (aspect >= 0.75) tier = 0.92 // portrait-ish phones
-  else tier = 0.85 // very tall/narrow: keep it small enough for chrome
-  return fit * tier
+  // Descending by aspect key. The first key an aspect satisfies is the lower
+  // bound of its band; the previous entry is the upper bound.
+  const tiers: ReadonlyArray<{ aspect: number; tier: number }> = [
+    { aspect: 3.5, tier: 1.16 },
+    { aspect: 2.4, tier: 1.12 },
+    { aspect: 1.78, tier: 1.0 },
+    { aspect: 1.2, tier: 0.95 },
+    { aspect: 0.75, tier: 0.9 },
+  ]
+
+  for (let i = 0; i < tiers.length; i++) {
+    const lower = tiers[i]
+    if (aspect >= lower.aspect) {
+      // At or above the top tier - flat.
+      if (i === 0) return fit * lower.tier
+      // Interpolate inside the band [lower.aspect, upper.aspect).
+      const upper = tiers[i - 1]
+      const t = Math.min(1, Math.max(0, (aspect - lower.aspect) / (upper.aspect - lower.aspect)))
+      return fit * (lower.tier + (upper.tier - lower.tier) * t)
+    }
+  }
+
+  // Below the lowest tier - flat floor.
+  return fit * 0.82
 }
 
 /**
  * Vertical FOV (degrees) that frames the phone to `fit` of the viewport, while
- * keeping its horizontal span inside `horizontalMargin` (default 86%) of the
- * frame width. Whichever axis is tighter wins, and `formatFit` warms the fit
- * target per aspect so the same intent holds on every format.
+ * keeping its horizontal span inside the horizontal margin of the frame width.
+ * Whichever axis is tighter wins, and `formatFit` warms the fit target per
+ * aspect so the same intent holds on every format.
  */
 export function fitFov(options: FitOptions): number {
   const {
@@ -75,16 +109,23 @@ export function fitFov(options: FitOptions): number {
     scale,
     rx,
     ry,
-    horizontalMargin = 0.86,
     minFov = 10,
     maxFov = 52,
   } = options
+
+  // Horizontal margin default: tightens on ultrawides so the phone occupies
+  // more of the wide frame. Continuous at 1.9, so nothing jumps.
+  const horizontalMargin =
+    options.horizontalMargin ??
+    Math.min(0.86, Math.max(0.78, 0.86 - Math.max(0, aspect - 1.9) * 0.05))
 
   const eh = effectiveHeight(scale, rx)
   const ew = effectiveWidth(scale, ry)
   // Off-center compositions consume horizontal angle too; fold |px| (meters,
   // same world scale as the phone half-width) into the width guard so a
-  // shifted frame can never leave the visible area.
+  // shifted frame can never leave the visible area. On ultrawides the large
+  // `aspect` in the denominator keeps this guard from fighting the vertical
+  // intent, so the offset is effectively free.
   const offsetSpan = options.px ?? 0
 
   // Vertical FOV that fills `fit` of the height.
@@ -98,9 +139,68 @@ export function fitFov(options: FitOptions): number {
   return Math.min(maxFov, Math.max(minFov, fov))
 }
 
-/** Clamps a screen-space offset so off-center compositions stay on screen
- * when the horizontal angle of view narrows (tablets, phones). */
+/**
+ * Screen-space bias multiplier for off-center compositions.
+ *
+ * On narrow screens it clamps hard so the phone never drifts off-canvas and
+ * captions/secondary content never collide with vertical chrome. On ultrawides
+ * (aspect > 1.9) the wide frame has horizontal room to spare, so an off-center
+ * composition toward the open space is never clamped away - it is gently
+ * *emphasized* instead (fitFov's width guard still caps any shift). This goes
+ * with `frameOffset`, which picks the default side and scale of that shift.
+ */
 export function centerBias(aspect: number, axis: 'x' | 'y'): number {
   const limit = axis === 'x' ? 1.5 : 1.1
-  return Math.min(1, Math.max(0.25, aspect / limit))
+  const base = Math.min(1, Math.max(0.25, aspect / limit))
+  if (axis === 'x' && aspect > 1.9) {
+    const t = Math.min(1, (aspect - 1.9) / (3.5 - 1.9))
+    return base + (1.25 - base) * t
+  }
+  return base
 }
+
+/**
+ * Where the phone sits horizontally - a world-space x-offset hint at the
+ * phone's depth, in meters, compatible with `fitFov`'s `px` (positive = right,
+ * negative = left).
+ *
+ * Ultrawides have horizontal room the composition should *use* instead of
+ * dead-centering: this returns a deliberate offset so the caption/anchored
+ * text lands in the open space. Narrow screens return 0 so the phone stays
+ * centered and captions/secondary content never collide.
+ *
+ * Pass `authoredPx` to reuse an authored offset: it is shifted further into
+ * the open space on ultrawides (scaled up within the band budget) and hard
+ * clamped on narrow screens.
+ *
+ * Offsets stay inside the frame-safe budget for every viewport; `centerBias`
+ * can further clamp if a composition also needs to survive a resized window.
+ *
+ * @param aspect     Viewport width / height.
+ * @param authoredPx Optional author world-space offset (meters).
+ */
+export function frameOffset(aspect: number, authoredPx?: number): number {
+  // Budget per band, in meters at the phone's depth.
+  if (aspect >= 2.6) {
+    const budget = 0.1
+    return authoredPx === undefined ? 0.085 : Math.max(-budget, Math.min(budget, authoredPx * 1.2))
+  }
+  if (aspect >= 1.9) {
+    const budget = 0.08
+    if (authoredPx === undefined) {
+      // Ramp the default shift from 0 at 1.9 to 0.07 at ~3.0.
+      return 0.07 * Math.min(1, (aspect - 1.9) / (3.0 - 1.9))
+    }
+    return Math.max(-budget, Math.min(budget, authoredPx * 1.2))
+  }
+  if (aspect >= 1.2) {
+    // Standard desktop / tablet landscape: subtle nudge only.
+    const budget = 0.012
+    if (authoredPx === undefined) return 0
+    return Math.max(-budget, Math.min(budget, authoredPx))
+  }
+  // Narrow phones: keep it centered - no collision room.
+  return 0
+}
+
+// perf: cheap - pure arithmetic, no allocations.

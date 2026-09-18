@@ -11,9 +11,11 @@ import {
   MainBoardAndSoC,
   MidframeRails,
   SubBoard,
+  ThermalSpreader,
   WpcCoil,
 } from './parts'
 import { createInternalsMaterials } from './materials'
+import { DIM, highlight } from '../../xray/inspect'
 
 /** Mutable control surface written by the film director each frame. */
 export interface InternalsControl {
@@ -27,9 +29,37 @@ export interface InternalsControl {
   chipFocus: number
   /** 0..1 energy-story pulse. */
   energy: number
+  /** 0..1 the A1 Ultra quarry lifts out of the board plane (macro). */
+  chipLift: number
+  /** 0..1 the battery cell pulls toward the camera at the energy climax. */
+  battLift: number
+  /** 0..1 the rest of the internals step back while a subject owns the frame. */
+  subjectDim: number
 }
 
-const ZERO: InternalsControl = { opacity: 0, explode: 0, explodeBatt: 0, chipFocus: 0, energy: 0 }
+const ZERO: InternalsControl = {
+  opacity: 0,
+  explode: 0,
+  explodeBatt: 0,
+  chipFocus: 0,
+  energy: 0,
+  chipLift: 0,
+  battLift: 0,
+  subjectDim: 0,
+}
+
+/** userData tags so inspect's partOf resolves every group through PartId. */
+const PART_TAG: Record<'main' | 'cameras' | 'battery' | 'wpc' | 'sub' | 'frame' | 'antenna', { part: import('../../xray/inspect').PartId }> = {
+  main: { part: 'main' },
+  cameras: { part: 'cameras' },
+  battery: { part: 'battery' },
+  wpc: { part: 'wpc' },
+  sub: { part: 'sub' },
+  frame: { part: 'frame' },
+  antenna: { part: 'antenna' },
+}
+
+const _col = new THREE.Color()
 
 /**
  * Home positions are physically stacked: coil near the rear glass, battery +
@@ -87,6 +117,15 @@ export function Internals({
     const d = 1 - Math.exp(-delta * 6)
     const t = state.clock.elapsedTime
 
+    // Hover-selection dim: while the inspector owns a subject, the rest of the
+    // hardware steps back by DIM and the selected part gets an emissive bump.
+    const hl = highlight.blend
+    const hlSub = highlight.subject
+    const dimK = 1 - DIM * hl * 0.6
+    const hlDie = hlSub === 'die' || hlSub === 'main'
+    const hlBatt = hlSub === 'battery'
+    const hlCam = hlSub === 'cameras'
+
     // Cull the whole assembly from the transparent pass when fully hidden.
     if (root.current) root.current.visible = o > 0.002
 
@@ -126,8 +165,8 @@ export function Internals({
     place(antG, ANT, 0, 5)
     place(midG, MID, 0, 6)
 
-    // The energy climax separates only the cell (battery + coil) so the 0.9
-    // beat reads as the cell lifting, never as a full re-explosion.
+    // Battery hero: battLift pulls the cell + label up so it owns the frame.
+    // Coil stays with the x-ray explode.
     const eBatt = Math.min(1, batt + e)
     const placeBatt = (
       ref: RefObject<THREE.Group | null>,
@@ -145,10 +184,29 @@ export function Internals({
     placeBatt(coilG, COIL, 1)
     placeBatt(battG, BATT, 2)
 
+    // BattLift override: the cell rises out of the chassis and tilts slightly
+    // toward the camera. Z comes from the authored hero keyframe, not the
+    // x-ray explode (which is 0 by the energy climax).
+    if (battG.current && c.battLift > 0.01) {
+      battG.current.position.z = -0.0016 + 0.0055 * c.battLift
+      battG.current.rotation.z = 0.02 * c.battLift
+    }
+
+    // ChipLift: the board (and die sitting on it) pushes toward the camera
+    // at the end of the flat-on beat so the packaging reads as lifted.
+    if (boardG.current && c.chipLift > 0.01) {
+      boardG.current.position.z += c.chipLift * 0.0012
+      boardG.current.position.y += c.chipLift * 0.0004
+    }
+
     // Fade the whole stack together; the board + chip stay strongest while
-    // the peripheral hardware (shields, battery, cameras) pulls back on focus.
-    const boardFade = o
-    const extFade = o * (1 - focus * 0.7)
+    // the peripheral hardware (shields, battery, cameras) pulls back on focus,
+    // the energy story dims everything except the cell (subjectDim), and a
+    // hover selection dims everything except the inspected part (dimK).
+    const boardFade = o * (hlDie ? 1 : dimK)
+    const camFade = o * (1 - focus * 0.7) * (1 - c.subjectDim * 0.5) * (hlCam ? 1 : dimK)
+    const battFade = o * (1 - focus * 0.65) * (hlBatt ? 1 : dimK)
+    const periphFade = o * (1 - focus * 0.7) * (1 - c.subjectDim * 0.6) * dimK
     m.pcb.opacity = boardFade
     m.pcbFace.opacity = boardFade
     m.pcbTrim.opacity = boardFade
@@ -157,29 +215,49 @@ export function Internals({
     m.substrate.opacity = boardFade
     m.socDie.opacity = boardFade
     m.socPad.opacity = boardFade
-    m.shield.opacity = extFade
-    m.gold.opacity = extFade
-    m.flex.opacity = extFade * 0.9
-    m.batteryBody.opacity = extFade
-    m.batteryCell.opacity = extFade
-    m.batteryLabel.opacity = extFade
-    m.housing.opacity = extFade
-    m.sensor.opacity = extFade
-    m.speakerMat.opacity = o
-    m.antennaPlate.opacity = o * 0.85
-    m.midframe.opacity = o * 0.4
+    m.shield.opacity = periphFade
+    m.gold.opacity = periphFade
+    m.flex.opacity = periphFade * 0.9
+    m.batteryBody.opacity = battFade
+    m.batteryCell.opacity = battFade
+    m.batteryLabel.opacity = battFade
+    m.housing.opacity = camFade
+    m.sensor.opacity = camFade
+    m.speakerMat.opacity = o * dimK
+    m.antennaPlate.opacity = o * 0.85 * dimK
+    m.midframe.opacity = o * 0.4 * dimK
 
-    // The die wakes up when it becomes the subject.
-    m.socDie.emissiveIntensity += (focus * 1.35 - m.socDie.emissiveIntensity) * d
+    // The die wakes up when it becomes the subject (choreography focus + a
+    // tighter bump when the inspector is on it).
+    m.socDie.emissiveIntensity += (
+      focus * 1.35 + (hlDie ? hl * 0.9 : 0) -
+      m.socDie.emissiveIntensity
+    ) * d
     m.trace.opacity += (focus * (0.5 + 0.16 * Math.sin(t * 2.2)) - m.trace.opacity) * 0.14
 
-    // Battery energy read.
-    const glow = c.energy * (0.8 + 0.2 * Math.sin(t * 2.6))
-    m.batteryCell.emissiveIntensity += (glow - m.batteryCell.emissiveIntensity) * d
+    // Battery energy read + the teal lift glow as the cell owns the frame.
+    const glow = c.energy * (0.8 + 0.2 * Math.sin(t * 2.6)) + c.battLift * 0.55
     m.batteryLabel.emissiveIntensity += (c.energy * 0.9 - m.batteryLabel.emissiveIntensity) * d
+    if (c.battLift > 0.02) {
+      _col.set(0x14d8b4).multiplyScalar(0.65 + c.battLift * 0.35)
+      m.batteryCell.emissive.lerp(_col, d)
+      m.batteryCell.emissiveIntensity += (glow + (hlBatt ? hl * 0.3 : 0) - m.batteryCell.emissiveIntensity) * d
+    } else {
+      _col.set(0x0a3f36)
+      m.batteryCell.emissive.lerp(_col, d)
+      m.batteryCell.emissiveIntensity += (glow - m.batteryCell.emissiveIntensity) * d
+    }
 
-    // Camera sensors breathe.
-    m.sensor.emissiveIntensity = 0.7 + 0.25 * Math.sin(t * 1.1)
+    // Camera sensors breathe (+ a dim-others bump when the camera module is up).
+    m.sensor.emissiveIntensity = 0.7 + 0.25 * Math.sin(t * 1.1) + (hlCam ? hl * 0.4 : 0)
+
+    // Hover on the main board gives the shields a faint lift so the board reads
+    // as the selected layer, not just the PCB.
+    if (hlSub === 'main' && hl > 0.01) {
+      m.shield.emissiveIntensity += (hl * 0.15 - m.shield.emissiveIntensity) * d
+    } else if (m.shield.emissiveIntensity > 0.01) {
+      m.shield.emissiveIntensity += (0 - m.shield.emissiveIntensity) * d
+    }
 
     // Ghost silhouette tracks visibility and breathes with separation + focus,
     // so it feels like an energy boundary rather than a static cage. It is
@@ -192,29 +270,31 @@ export function Internals({
   return (
     <group ref={groupRef}>
       <group ref={root}>
-        <group ref={coilG}>
+        <group ref={coilG} userData={PART_TAG.wpc}>
           <WpcCoil m={m} />
         </group>
-        <group ref={camG}>
+        <group ref={camG} userData={PART_TAG.cameras}>
           <CameraModules m={m} />
         </group>
-        <group ref={boardG}>
+        <group ref={boardG} userData={PART_TAG.main}>
           <MainBoardAndSoC m={m} />
+          {/* Graphite heat-spreader foil rides the board's back face. */}
+          <ThermalSpreader m={m} />
         </group>
-        <group ref={battG}>
+        <group ref={battG} userData={PART_TAG.battery}>
           <Battery m={m} />
         </group>
-        <group ref={subG}>
+        <group ref={subG} userData={PART_TAG.sub}>
           <SubBoard m={m} />
         </group>
-        <group ref={antG}>
+        <group ref={antG} userData={PART_TAG.antenna}>
           <AntennaPlates m={m} />
           <FrontSensors m={m} />
         </group>
 
         {/* Structural spine mid-frame; it barely parts so the stack never
             feels like it is coming unglued. */}
-        <group ref={midG}>
+        <group ref={midG} userData={PART_TAG.frame}>
           <MidframeRails m={m} />
         </group>
 
