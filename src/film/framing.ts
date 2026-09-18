@@ -22,7 +22,7 @@ export function effectiveHeight(scale: number, rx: number): number {
 
 /** Horizontal silhouette width of the phone at its current pose. */
 export function effectiveWidth(scale: number, ry: number): number {
-  return scale * (PHONE_W * Math.cos(ry) + PHONE_T * Math.sin(ry))
+  return scale * (Math.abs(PHONE_W * Math.cos(ry)) + PHONE_T * Math.sin(ry))
 }
 
 export interface FitOptions {

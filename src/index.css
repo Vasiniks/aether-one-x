@@ -14,6 +14,7 @@
 
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: 'Space Grotesk Variable', 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -94,6 +95,58 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* ---- Film editorial type system ---------------------------------------- */
+
+/* Big display numerals: the primary story unit of every act. */
+.spec-num {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: lining-nums;
+  letter-spacing: -0.025em;
+  line-height: 0.84;
+}
+
+.spec-num--gradient {
+  background: linear-gradient(180deg, #ffffff 8%, rgba(150, 178, 255, 0.9) 68%, rgba(150, 178, 255, 0.28) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Uppercase technical labels that sit beside the numerals. */
+.spec-unit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.spec-tech {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.spec-tech strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.spec-hair {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.06));
+}
+
+.spec-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+  background: rgba(150, 178, 255, 0.85);
 }
 
 .no-scrollbar::-webkit-scrollbar {

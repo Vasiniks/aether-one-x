@@ -23,7 +23,10 @@ FILM_MATERIALS.display.transparent = true
 FILM_MATERIALS.display.depthWrite = false
 FILM_MATERIALS.screen.color = new THREE.Color('#0a0d14')
 FILM_MATERIALS.screen.transparent = true
-FILM_MATERIALS.screen.opacity = 0.09
+// The front glass keeps real presence during solid acts (gloss + specular
+// read); it thins out only while the internals are on stage. The director
+// drives both opacity values toward those targets each frame.
+FILM_MATERIALS.screen.opacity = 0.42
 FILM_MATERIALS.screen.depthWrite = false
 
 /** A soft additive x-ray shell outline (clean perimeter rods, no wireframe). */

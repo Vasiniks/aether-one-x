@@ -61,6 +61,11 @@ const LENSES: LensSpec[] = [
 interface PhoneModelProps {
   /** Optional per-instance material set (used by the film for X-ray opacity). */
   materials?: PhoneMaterialSet
+  /**
+   * Optional shell sub-groups (frame / back / glass) so a director can part the
+   * layers for an exploded view. Defaults to unused refs: zero behavior change.
+   */
+  groups?: Partial<Record<'frame' | 'back' | 'glass', MutableRefObject<THREE.Group | null>>>
 }
 
 /** A self-owned default material set with a static display texture. */
@@ -71,9 +76,11 @@ function createDefaultMaterials(): PhoneMaterialSet {
   return set
 }
 
-export function PhoneModel({ materials }: PhoneModelProps) {
-  const ownMaterials = useMemo(() => createDefaultMaterials(), [])
-  const set = materials ?? ownMaterials
+export function PhoneModel({ materials, groups }: PhoneModelProps) {
+  // Only mint the default material set + static textures when this instance
+  // actually owns its look (the film passes a shared, pre-built set).
+  const ownMaterials = useMemo(() => (materials ? null : createDefaultMaterials()), [materials])
+  const set = materials ?? ownMaterials!
 
   const { finish, focusLens } = usePhoneConfig()
 
@@ -140,57 +147,65 @@ export function PhoneModel({ materials }: PhoneModelProps) {
 
   return (
     <group>
-      {/* Titanium frame */}
-      <RoundedBox args={[DIM.w, DIM.h, DIM.t]} radius={0.0035} smoothness={10} position={[0, 0, 0]} castShadow>
-        <primitive object={set.frame} attach="material" />
-      </RoundedBox>
+      {/* Titanium frame + machined edge hardware */}
+      <group ref={groups?.frame}>
+        <RoundedBox args={[DIM.w, DIM.h, DIM.t]} radius={0.0035} smoothness={10} position={[0, 0, 0]} castShadow>
+          <primitive object={set.frame} attach="material" />
+        </RoundedBox>
 
-      {/* Rear ceramic / titanium panel */}
-      <RoundedBox
-        args={[DIM.w - BEZEL * 2, DIM.h - BEZEL * 2, BACK_PANEL.depth]}
-        radius={0.0013}
-        smoothness={6}
-        position={[0, 0, -0.00251]}
-      >
-        <primitive object={set.back} attach="material" />
-      </RoundedBox>
+        {/* Edge hardware */}
+        <EdgeDetails set={set} />
+      </group>
 
-      {/* Front glass surface */}
-      <RoundedBox
-        args={[DIM.w - BEZEL * 2, DIM.h - BEZEL * 2, FRONT_GLASS.depth]}
-        radius={0.0011}
-        smoothness={6}
-        position={[0, 0, FRONT_GLASS.z]}
-      >
-        <primitive object={set.screen} attach="material" />
-      </RoundedBox>
+      {/* Rear ceramic panel + camera island + flash + brand mark */}
+      <group ref={groups?.back}>
+        <RoundedBox
+          args={[DIM.w - BEZEL * 2, DIM.h - BEZEL * 2, BACK_PANEL.depth]}
+          radius={0.0013}
+          smoothness={6}
+          position={[0, 0, -0.00251]}
+        >
+          <primitive object={set.back} attach="material" />
+        </RoundedBox>
 
-      {/* Lit display panel, inset behind the glass for a thin dark bezel */}
-      <RoundedBox
-        args={[
-          DIM.w - BEZEL * 2 - DISPLAY_INSET * 2,
-          DIM.h - BEZEL * 2 - DISPLAY_INSET * 2,
-          DISPLAY_PANEL.depth,
-        ]}
-        radius={0.0006}
-        smoothness={4}
-        position={[0, 0, DISPLAY_PANEL.z]}
-      >
-        <primitive object={set.display} attach="material" />
-      </RoundedBox>
+        {/* Rear camera system */}
+        <CameraIsland materials={set} geometry={islandGeometry} lensRefs={lensRefs} />
+        <FlashModule materials={set} />
 
-      {/* Rear camera system */}
-      <CameraIsland materials={set} geometry={islandGeometry} lensRefs={lensRefs} />
-      <FlashModule materials={set} />
+        {/* Brand decal (rear) */}
+        <mesh position={[0, -0.065, BACK_FACE - 0.00006]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[0.016, 0.004]} />
+          <primitive object={set.logo} attach="material" />
+        </mesh>
+      </group>
 
-      {/* Edge hardware */}
-      <EdgeDetails set={set} />
+      {/* Front glass stack + display panel + under-glass sensors */}
+      <group ref={groups?.glass}>
+        <RoundedBox
+          args={[DIM.w - BEZEL * 2, DIM.h - BEZEL * 2, FRONT_GLASS.depth]}
+          radius={0.0011}
+          smoothness={6}
+          position={[0, 0, FRONT_GLASS.z]}
+        >
+          <primitive object={set.screen} attach="material" />
+        </RoundedBox>
 
-      {/* Brand decal (rear) */}
-      <mesh position={[0, -0.065, BACK_FACE - 0.00006]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[0.016, 0.004]} />
-        <primitive object={set.logo} attach="material" />
-      </mesh>
+        {/* Lit display panel, inset behind the glass for a thin dark bezel */}
+        <RoundedBox
+          args={[
+            DIM.w - BEZEL * 2 - DISPLAY_INSET * 2,
+            DIM.h - BEZEL * 2 - DISPLAY_INSET * 2,
+            DISPLAY_PANEL.depth,
+          ]}
+          radius={0.0006}
+          smoothness={4}
+          position={[0, 0, DISPLAY_PANEL.z]}
+        >
+          <primitive object={set.display} attach="material" />
+        </RoundedBox>
+
+        <FrontGlassDetails set={set} />
+      </group>
     </group>
   )
 }
@@ -320,7 +335,14 @@ function EdgeDetails({ set }: { set: ReturnType<typeof createPhoneMaterials> }) 
         <boxGeometry args={[0.0036, 0.0004, 0.0006]} />
         <primitive object={set.simTray} attach="material" />
       </mesh>
+    </group>
+  )
+}
 
+/** Hardware that lives on the front glass: earpiece, mic ports, selfie optics. */
+function FrontGlassDetails({ set }: { set: ReturnType<typeof createPhoneMaterials> }) {
+  return (
+    <group>
       {/* Earpiece slit on the front glass */}
       <mesh position={[0, 0.0744, FRONT_GLASS.z + 0.00078]}>
         <boxGeometry args={[0.0034, 0.0005, 0.00022]} />

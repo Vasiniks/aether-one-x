@@ -43,8 +43,8 @@ export const ACTS: ActDef[] = [
   { id: 'storage', start: 0.84, end: 0.89, align: 'right' },
   { id: 'battery', start: 0.89, end: 0.93, align: 'left' },
   { id: 'software', start: 0.93, end: 0.955, align: 'center' },
-  { id: 'ai', start: 0.955, end: 0.975, align: 'right' },
-  { id: 'final', start: 0.975, end: 1, align: 'center' },
+  { id: 'ai', start: 0.955, end: 0.968, align: 'right' },
+  { id: 'final', start: 0.968, end: 1, align: 'center' },
 ]
 
 export interface FilmKey {
@@ -103,10 +103,10 @@ const KS = (
  */
 export const KEYS: FilmKey[] = [
   // -- ARRIVAL: phone out of the dark, edge-on and small, rising to hero pose --
-  KS(0, -0.5, 1.6, 0, 0.52, 0, 0, 0, 0, 1.16, 0, 0, 0, 13, 0.34),
-  KS(0.04, -0.45, 0.85, 0, 0.68, 0, 0, 0, 0, 1.06, 0, 0, 0, 14, 0.44),
-  KS(0.08, -0.36, 0.5, 0, 0.86, 0, 0, 0, 0, 0.97, 0, 0, 0, 15, 0.52),
-  KS(0.1, -0.28, 0.35, 0, 1, 0, 0, 0, 0, 0.92, 0, 0, 0, 16, 0.58),
+  KS(0, -0.5, 1.6, 0, 0.55, 0, 0, 0, 0, 1.16, 0, 0, 0, 13, 0.4),
+  KS(0.04, -0.45, 0.85, 0, 0.7, 0, 0, 0, 0, 1.06, 0, 0, 0, 14, 0.48),
+  KS(0.08, -0.36, 0.5, 0, 0.88, 0, 0, 0, 0, 0.97, 0, 0, 0, 15, 0.55),
+  KS(0.1, -0.28, 0.35, 0, 1, 0, 0, 0, 0, 0.92, 0, 0, 0, 16, 0.6),
 
   // -- SETTLE: title breathes, then we lean in --
   KS(0.155, -0.2, 0.2, 0, 1.07, 0, 0.01, 0, 0.01, 0.85, 0, 0, 0, 17, 0.62),
@@ -120,11 +120,12 @@ export const KEYS: FilmKey[] = [
   KS(0.28, -0.5, 0.38, 0, 1.36, 0, 0.1, 0, 0.1, 0.56, 0.012, 0.02, 0, 24, 0.55),
   KS(0.33, -0.62, 0.24, 0, 1.44, 0, 0.13, 0, 0.13, 0.5, 0.02, 0.06, 0, 28, 0.5),
 
-  // -- CHIP: the A1 Ultra becomes the subject --
-  KS(0.4, -0.5, 0.3, 0, 1.78, 0, 0.06, 0.02, 0.06, 0.36, 0.012, 0.055, 0, 30, 0.92, 48),
-  KS(0.46, -0.42, 0.45, 0, 2.08, 0, 0.055, 0.015, 0.055, 0.3, 0.012, 0.055, 0, 32, 0.98, 50),
+  // -- CHIP: the A1 Ultra becomes the subject; the camera dives into the
+  // cavity as the shell still ghosts, until the die owns the frame --
+  KS(0.4, -0.5, 0.3, 0, 1.78, 0, 0.06, 0.016, 0.055, 0.085, 0.012, 0.055, 0.012, 30, 0.9, 48),
+  KS(0.46, -0.42, 0.45, 0, 1.95, 0, 0.055, 0.011, 0.055, 0.038, 0.012, 0.055, 0.01, 40, 0.95, 56),
 
-  // -- REBUILD: pull back, shell closes, rotate toward rear --
+  // -- REBUILD: pull out of the cavity, stack repacks, shell closes --
   KS(0.5, -0.34, 0.7, 0, 1.62, 0, 0.045, 0.008, 0.045, 0.42, 0.012, 0.03, 0, 31, 0.66),
   KS(0.52, -0.28, 1.02, 0, 1.28, 0, 0.025, 0, 0.025, 0.64, 0, 0, 0, 24, 0.6),
 
@@ -154,7 +155,7 @@ export const KEYS: FilmKey[] = [
   KS(0.955, -0.12, 0.28, 0, 1.14, -0.1, 0.01, 0.26, 0.01, 0.66, -0.03, 0, 0, 21, 0.56),
 
   // -- FINAL: return to the center, best lighting, three-quarter hero --
-  KS(0.985, -0.28, 0.42, 0, 1.34, 0, 0.02, 0, 0.02, 0.6, 0, 0, 0, 22, 0.62),
+  KS(0.98, -0.28, 0.42, 0, 1.34, 0, 0.02, 0, 0.02, 0.6, 0, 0, 0, 22, 0.6),
   KS(1, -0.26, 0.4, 0, 1.36, 0, 0.02, 0, 0.02, 0.58, 0, 0, 0, 22, 0.62),
 ]
 

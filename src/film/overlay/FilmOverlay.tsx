@@ -3,22 +3,24 @@ import type { MotionValue } from 'motion/react'
 import { Suspense, lazy } from 'react'
 import { ACTS } from '../story'
 import { useChapter } from './useChapter'
-import { CHAPTERS } from './chapters'
-import { Caption, XRayRead } from './primitives'
+import { CHAPTERS, type ChapterCopy } from './chapters'
+import { NoteLine, NumeralBlock, RevealWindow, TechRuler, TitleLine, XRayRead } from './primitives'
 import { ChipAnnotations } from './ChipAnnotations'
+import { Finale } from './Finale'
 
 const AetherOSPhone = lazy(() =>
   import('../../components/PhoneOS/AetherOSPhone').then((m) => ({ default: m.AetherOSPhone })),
 )
 
 /**
- * The editorial layer of the film: chapter captions, live rail, scroll cue,
- * and the interactive AetherOS moment. Everything is scroll-driven from the
- * master `progress` motion value and crossfades on act boundaries.
+ * The editorial layer of the film: per-act spec compositions driven by the
+ * act-local `local` value, live act rail, hairline progress, scroll cue, the
+ * AetherOS moment and the finale purchase beat. React only re-renders at act
+ * boundaries; every stagger inside an act is a motion value.
  */
 export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
   const reduce = useReducedMotion()
-  const { act } = useChapter(progress)
+  const { act, local } = useChapter(progress)
   const copy = CHAPTERS[act.id]
   const index = ACTS.findIndex((a) => a.id === act.id) + 1
   const align = act.align
@@ -27,6 +29,16 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
   const hairlineWidth = useTransform(progress, (v) => `${(v * 100).toFixed(1)}%`)
 
   const isSoftware = act.id === 'software'
+  const isFinale = act.id === 'final'
+
+  const wrapperClass =
+    isFinale
+      ? 'absolute inset-0'
+      : align === 'center' || align === 'bottom'
+        ? 'absolute inset-x-0 bottom-24 flex flex-col items-center justify-end px-4 text-center'
+        : align === 'right'
+          ? 'absolute bottom-24 left-5 right-5 flex flex-col items-start sm:left-8 lg:left-[40vw] lg:right-14'
+          : 'absolute bottom-24 right-5 left-5 flex flex-col items-start sm:right-8 lg:left-14 lg:right-[40vw]'
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
@@ -42,17 +54,6 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
         style={{ background: 'linear-gradient(0deg, rgba(5,7,13,0.7), rgba(5,7,13,0))' }}
       />
 
-      {/* Product chip, pinned just below the fixed nav. */}
-      <div className="absolute inset-x-0 top-24 flex justify-center px-4 sm:top-24">
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/30 px-4 py-2 backdrop-blur-sm">
-          <span className="font-mono text-[9px] tracking-[0.32em] text-ink">AETHER FILM</span>
-          <span className="h-1 w-1 rounded-full bg-ink/40" />
-          <span className="hidden font-mono text-[9px] tracking-[0.24em] text-dim sm:inline">
-            A REAL PRODUCT, SHOT IN REAL TIME
-          </span>
-        </div>
-      </div>
-
       {/* Chapter caption */}
       <div className="absolute inset-0">
         <AnimatePresence mode="wait">
@@ -62,69 +63,9 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -18 }}
             transition={{ duration: 0.45, ease: 'easeOut' }}
-            className={
-              align === 'center'
-                ? 'absolute inset-x-0 bottom-24 flex flex-col items-center text-center'
-                : align === 'bottom'
-                  ? 'absolute inset-x-0 bottom-24 flex flex-col items-center text-center'
-                  : align === 'right'
-                    ? 'absolute right-5 bottom-24 left-5 sm:right-8 lg:right-14 lg:left-[36vw]'
-                    : 'absolute bottom-24 left-5 right-5 sm:left-8 lg:left-14 lg:right-[36vw]'
-            }
+            className={wrapperClass}
           >
-            {align === 'center' || align === 'bottom' ? (
-              <div className="flex flex-col items-center">
-                {copy.metric ? (
-                  <div
-                    aria-hidden="true"
-                    className="bg-gradient-to-b from-white to-white/25 bg-clip-text text-[120px] leading-[0.85] font-semibold tracking-tight text-transparent sm:text-[180px] lg:text-[210px]"
-                  >
-                    {copy.metric}
-                  </div>
-                ) : null}
-                {copy.metricSub ? (
-                  <p className="mt-3 font-mono text-[9px] tracking-[0.32em] text-white/45">
-                    {copy.metricSub}
-                  </p>
-                ) : null}
-                <div className="mt-2">
-                  <CaptionSmall index={index} label={copy.label} title={copy.title} note={copy.note} lines={copy.lines} />
-                </div>
-                {copy.extra === 'xray' ? (
-                  <div className="mt-6">
-                    <XRayRead x="0.076 m" y="0.159 m" z="7.8 mm" />
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <>
-                <Caption
-                  index={index}
-                  label={copy.label}
-                  title={copy.title}
-                  note={copy.note}
-                  lines={copy.lines}
-                  align={align === 'right' ? 'right' : 'left'}
-                  metric={copy.metric ? (
-                    <span className="flex flex-col">
-                      <span className="bg-gradient-to-b from-white to-white/30 bg-clip-text text-[84px] font-semibold tracking-tight text-transparent sm:text-[110px]">
-                        {copy.metric}
-                      </span>
-                      {copy.metricSub ? (
-                        <span className="mt-2 font-mono text-[9px] tracking-[0.32em] text-white/45">
-                          {copy.metricSub}
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : undefined}
-                />
-                {copy.extra === 'xray' ? (
-                  <div className="mt-6">
-                    <XRayRead x="0.076 m" y="0.159 m" z="7.8 mm" />
-                  </div>
-                ) : null}
-              </>
-            )}
+            {isFinale ? <Finale local={local} /> : <CoreCaption local={local} copy={copy} align={align} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -138,7 +79,10 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
               <motion.span
                 key={a.id}
                 initial={false}
-                animate={{ opacity: i + 1 <= index ? 1 : 0.22, backgroundColor: i + 1 === index ? '#7aa5ff' : '#ffffff' }}
+                animate={{
+                  opacity: i + 1 <= index ? 1 : 0.22,
+                  backgroundColor: i + 1 === index ? '#7aa5ff' : '#ffffff',
+                }}
                 transition={{ duration: 0.3 }}
                 className="absolute left-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full"
                 style={{ top: `${(a.start + (a.end - a.start) * 0.5) * 100}%` }}
@@ -164,18 +108,15 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
 
       {/* Arrival scroll cue */}
       <motion.div className="absolute inset-x-0 bottom-16 flex justify-center" style={{ opacity: scrollCueOpacity }}>
-        <div className="flex flex-col items-center gap-3 font-mono text-[9px] tracking-[0.34em] text-white/40">
-          <span>AETHER FILM</span>
-          <motion.span
-            animate={reduce ? undefined : { y: [0, 6, 0] }}
-            transition={reduce ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-            className="block h-8 w-px bg-gradient-to-b from-white/50 to-transparent"
-          />
-        </div>
+        <motion.span
+          animate={reduce ? undefined : { y: [0, 6, 0] }}
+          transition={reduce ? undefined : { duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+          className="block h-9 w-px bg-gradient-to-b from-white/45 to-transparent"
+        />
       </motion.div>
 
       {/* A1 Ultra spec annotations (chip act, desktop) */}
-      <AnimatePresence>{act.id === 'chip' ? <ChipAnnotations key="chip" /> : null}</AnimatePresence>
+      <AnimatePresence>{act.id === 'chip' ? <ChipAnnotations key="chip" local={local} /> : null}</AnimatePresence>
 
       {/* X-ray hover cue (xray act, desktop) */}
       <AnimatePresence>
@@ -218,48 +159,39 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
   )
 }
 
-/** Compact centered caption used by the center/bottom acts. */
-function CaptionSmall({
-  index,
-  label,
-  title,
-  note,
-  lines,
+/** Per-act spec composition, staggered against the act-local motion value. */
+function CoreCaption({
+  local,
+  copy,
+  align,
 }: {
-  index: number
-  label: string
-  title: string
-  note?: string
-  lines?: { k: string; v: string }[]
+  local: MotionValue<number>
+  copy: ChapterCopy
+  align: 'center' | 'bottom' | 'left' | 'right'
 }) {
+  const r = copy.reveal ?? {}
+  const center = align === 'center' || align === 'bottom'
+  const sideAlign = align === 'right' ? 'right' : 'left'
+
   return (
-    <div>
-      <FilmKickerMini index={index} label={label} />
-      <h3 className="mt-3 text-4xl leading-none font-semibold tracking-tight text-ink sm:text-5xl">
-        {title}
-      </h3>
-      {note ? <p className="mt-3 text-[13px] leading-relaxed text-dim">{note}</p> : null}
-      {lines?.length ? (
-        <div className="mt-5 space-y-1.5 border-t border-white/10 pt-4 text-left">
-          {lines.map((l) => (
-            <div key={l.k} className="flex items-baseline gap-10 font-mono text-[11px] tracking-[0.18em]">
-              <span className="w-24 text-white/40">{l.k}</span>
-              <span className="text-ink">{l.v}</span>
-            </div>
-          ))}
-        </div>
+    <div className={center ? 'flex flex-col items-center text-center' : 'flex flex-col items-start text-left'}>
+      {copy.num ? (
+        <NumeralBlock local={local} from={r.num ?? 0.15} unitFrom={r.unit} num={copy.num} unit={copy.unit} align={center ? 'center' : sideAlign} />
+      ) : null}
+
+      {copy.title ? <TitleLine local={local} from={r.title ?? 0.1} title={copy.title} className={copy.num ? 'mt-3' : ''} /> : null}
+
+      {copy.tech?.length ? (
+        <TechRuler local={local} from={r.tech ?? 0.45} rows={copy.tech} className={center ? 'mt-6' : 'mt-5'} />
+      ) : null}
+
+      {copy.note ? <NoteLine local={local} from={r.note ?? 0.6} note={copy.note} className="mt-4" /> : null}
+
+      {copy.extra === 'xray' ? (
+        <RevealWindow local={local} from={0.5} to={0.62} className="mt-6">
+          <XRayRead x="0.076 m" y="0.159 m" z="7.8 mm" />
+        </RevealWindow>
       ) : null}
     </div>
-  )
-}
-
-function FilmKickerMini({ index, label }: { index: number; label: string }) {
-  return (
-    <p className="flex items-center justify-center gap-2.5 font-mono text-[10px] tracking-[0.3em] text-aether">
-      <span className="inline-block h-1.5 w-1.5 rounded-[1px] bg-aether" />
-      <span>CHAPTER {String(index).padStart(2, '0')} / 13</span>
-      <span className="text-white/15">/</span>
-      <span className="text-white/45">{label}</span>
-    </p>
   )
 }

@@ -12,9 +12,10 @@ const PhoneViewer = lazy(() =>
 )
 
 /**
- * The film's closing deck. After the final shot lands on the hero angle, this
- * section is where the viewer configures and "buys" the phone. It reuses the
- * live 3D configurator scene so finish changes are visible instantly.
+ * Post-credits configure block. The finale beat already happened in the film;
+ * this section is the sober counterpart where the viewer finalizes selection
+ * on the live configurator. Finish choices carry over from the film's final
+ * frame via the shared phone config.
  */
 export function BuyDeck() {
   const { finish, setFinish } = usePhoneConfig()
@@ -28,20 +29,19 @@ export function BuyDeck() {
   )
 
   return (
-    <section id="buy" className="relative border-t border-white/8 py-24 lg:py-32">
+    <section id="buy" className="relative border-t border-white/8 py-16 lg:py-24">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <Reveal>
-          <p className="font-mono text-[10px] tracking-[0.3em] text-aether">THE LAST SHOT / CONFIGURE</p>
-          <h2 className="mt-4 max-w-2xl text-5xl leading-[0.98] font-semibold tracking-tight text-ink sm:text-6xl lg:text-7xl">
-            Make it yours.
+          <p className="font-mono text-[10px] tracking-[0.3em] text-aether">POST-CREDITS / CONFIGURE</p>
+          <h2 className="mt-3 max-w-2xl text-3xl leading-[0.98] font-semibold tracking-tight text-ink sm:text-4xl">
+            Pick up where the film left off.
           </h2>
-          <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-dim">
-            Pick a finish and a capacity. Every One X shares the same titanium body, the same camera
-            system, and the same quiet mind.
+          <p className="mt-4 max-w-xl text-[14px] leading-relaxed text-dim">
+            Finish selections carry over from the final frame. Capacity is still yours to choose.
           </p>
         </Reveal>
 
-        <div className="mt-16 grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
+        <div className="mt-12 grid items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
           {/* Live hero preview */}
           <Reveal>
             <div className="relative flex justify-center">

@@ -23,10 +23,10 @@ interface Picked {
 }
 
 const PICK_TARGETS: Record<string, { label: string; detail: string }> = {
-  'xray:soc': { label: 'A1 ULTRA', detail: '3 NM · 8 CPU · 14 GPU' },
+  'xray:soc': { label: 'A1 ULTRA', detail: '3 NM / 8 CPU / 14 GPU' },
   'xray:battery': { label: 'BATTERY', detail: '5200 mAh · LONG-LIFE CELL' },
   'xray:board': { label: 'MAIN BOARD', detail: '14-LAYER PCB · 16 GB LPDDR5X' },
-  'xray:camera': { label: 'CAMERA', detail: '50 MP · 1/1.3IN · OIS' },
+  'xray:camera': { label: 'CAMERA', detail: '50 MP / 1/1.3IN / OIS' },
 }
 
 const XRAY_EVENT = 'aether:xtip'

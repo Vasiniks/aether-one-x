@@ -86,6 +86,8 @@ export function sampleFilm(p: number): FilmSample {
 export interface FilmStates {
   /** 0..1 how far the outer shell has dissolved. */
   shellGhost: number
+  /** 0..1 how much the shell layers (glass / back) split apart. */
+  shellSplit: number
   /** 0..1 how visible the internal hardware is. */
   internalOpacity: number
   /** 0..1 how far the internals are pulled apart. */
@@ -105,20 +107,23 @@ function ramplike(p: number, in1: number, in2: number, out1: number, out2: numbe
 }
 
 export function computeFilmStates(p: number): FilmStates {
+  const explodeXray = ramplike(p, 0.27, 0.32, 0.485, 0.535)
+  const explodeBatt = ramplike(p, 0.885, 0.9, 0.9, 0.915)
   return {
     shellGhost: Math.min(
       1,
       ramplike(p, 0.25, 0.31, 0.44, 0.52) + ramplike(p, 0.875, 0.9, 0.905, 0.925),
     ),
+    // Glass + back part from the frame while the internals are on stage.
+    shellSplit: ramplike(p, 0.29, 0.34, 0.47, 0.53),
     internalOpacity: Math.min(
       1,
-      ramplike(p, 0.26, 0.31, 0.455, 0.52) + ramplike(p, 0.88, 0.9, 0.905, 0.93),
+      ramplike(p, 0.26, 0.31, 0.5, 0.545) + ramplike(p, 0.88, 0.9, 0.905, 0.93),
     ),
-    explode: Math.min(
-      1,
-      ramplike(p, 0.27, 0.32, 0.455, 0.5) + ramplike(p, 0.885, 0.9, 0.9, 0.915),
-    ),
-    chipFocus: ramplike(p, 0.35, 0.4, 0.44, 0.47),
+    explode: Math.min(1, explodeXray + explodeBatt),
+    // Focus peaks with the dive into the cavity and fades only as the stack
+    // repacks, so the macro reads as one deliberate held beat.
+    chipFocus: ramplike(p, 0.36, 0.445, 0.49, 0.54),
     energy: ramplike(p, 0.885, 0.9, 0.91, 0.93),
     screenOn: ramplike(p, 0.03, 0.08, 1, 1),
   }

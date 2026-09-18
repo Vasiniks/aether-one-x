@@ -42,10 +42,10 @@ export const FINISH_PARAMS: Record<FinishId, FinishParams> = {
     key: 'obsidian',
     backColor: '#0d0d11',
     backMetalness: 0,
-    backRoughness: 0.14,
+    backRoughness: 0.24,
     islandColor: '#0f0f14',
     frameColor: '#7a8089',
-    frameRoughness: 0.34,
+    frameRoughness: 0.3,
     frameAnisotropy: 0.55,
   },
   titanium: {
@@ -119,25 +119,25 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     anisotropy: params.frameAnisotropy,
     // Roughness anisotropy sheen rotates with the long axis of the phone.
     anisotropyRotation: Math.PI / 2,
-    envMapIntensity: 1.05,
+    envMapIntensity: 1.25,
   })
 
   const back = makeMaterial({
     color: new Color(params.backColor),
     metalness: params.backMetalness,
     roughness: params.backRoughness,
-    clearcoat: 1,
-    clearcoatRoughness: 0.1,
-    envMapIntensity: 1.1,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.2,
+    envMapIntensity: 1.4,
   })
 
   const island = makeMaterial({
     color: new Color(params.islandColor),
     metalness: params.backMetalness,
-    roughness: Math.min(0.12, params.backRoughness * 0.8),
-    clearcoat: 1,
-    clearcoatRoughness: 0.06,
-    envMapIntensity: 1.2,
+    roughness: Math.min(0.16, params.backRoughness * 0.8),
+    clearcoat: 0.75,
+    clearcoatRoughness: 0.15,
+    envMapIntensity: 1.5,
   })
 
   const screen = makeMaterial({

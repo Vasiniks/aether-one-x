@@ -29,22 +29,34 @@ export interface InternalsControl {
 
 const ZERO: InternalsControl = { opacity: 0, explode: 0, chipFocus: 0, energy: 0 }
 
-/** Watch your step: these offsets keep the separation small and engineered. */
-const BOARD = { base: new THREE.Vector3(0.008, 0.05, 0.0002), off: new THREE.Vector3(0.012, 0.004, 0.006) }
-const CAM = { base: new THREE.Vector3(-0.023, 0.05, -0.0016), off: new THREE.Vector3(-0.01, 0.004, 0.008) }
-const BATT = { base: new THREE.Vector3(0, -0.05, -0.0016), off: new THREE.Vector3(-0.006, -0.01, -0.006) }
-const COIL = { base: new THREE.Vector3(0, 0, -0.0021), off: new THREE.Vector3(0.005, 0.003, -0.01) }
-const SUB = { base: new THREE.Vector3(0, -0.068, -0.001), off: new THREE.Vector3(0.006, 0.006, 0.01) }
-const ANT = { base: new THREE.Vector3(0, 0, -0.0018), off: new THREE.Vector3(0.003, -0.002, -0.008) }
+/**
+ * Home positions are physically stacked: coil near the rear glass, battery +
+ * cameras mid-stack, board + A1 Ultra toward the front glass. Every layer parts
+ * mostly along Z with staggered timing so the separation reads as an exploded
+ * assembly drawing, not a physics tumble. The board lifts last and keeps rising
+ * while the camera dives for the chip.
+ */
+const BOARD = { x: 0.008, y: 0.05, z: 0.0002, px: 0.002, zOff: 0.024, stagger: 1.8 }
+const CAM = { x: -0.023, y: 0.05, z: -0.0016, px: -0.0015, zOff: 0.017, stagger: 0.8 }
+const BATT = { x: 0, y: -0.05, z: -0.0016, px: -0.001, zOff: -0.016, stagger: 1.2 }
+const COIL = { x: 0, y: 0, z: -0.0021, px: 0.001, zOff: -0.012, stagger: 1.0 }
+const SUB = { x: 0, y: -0.068, z: -0.001, px: 0.0015, zOff: 0.011, stagger: 1.1 }
+const ANT = { x: 0, y: 0, z: -0.0018, px: 0.001, zOff: 0.005, stagger: 0.9 }
+const MID = { x: 0, y: 0, z: 0, px: 0, zOff: 0.003, stagger: 1.05 }
 
 const _v = new THREE.Vector3()
+
+/** Shapes a shared separation scalar into a per-layer progress (0..1). */
+function staged(e: number, stagger: number): number {
+  return Math.pow(Math.min(1, Math.max(0, e)), stagger)
+}
 
 /**
  * The phone's internal construction: a believable layered stack roughly in
  * the order rear ceramic → coil/graphite → camera modules · main board ·
  * A1 Ultra · battery → sub-board / charging / speaker → structural rails →
- * display assembly. The driven explode offsets part the layers just enough to
- * read as an inspection, never a collapse.
+ * display assembly. The driven explode offsets part the layers along the
+ * device's own depth axis, staggered per layer for an engineered read.
  */
 export function Internals({
   control,
@@ -55,12 +67,14 @@ export function Internals({
 }) {
   const m = useMemo(() => createInternalsMaterials(), [])
 
+  const root = useRef<THREE.Group>(null)
   const boardG = useRef<THREE.Group>(null)
   const battG = useRef<THREE.Group>(null)
   const camG = useRef<THREE.Group>(null)
   const coilG = useRef<THREE.Group>(null)
   const subG = useRef<THREE.Group>(null)
   const antG = useRef<THREE.Group>(null)
+  const midG = useRef<THREE.Group>(null)
 
   useFrame((state, delta) => {
     const c = control.current ?? ZERO
@@ -69,34 +83,37 @@ export function Internals({
     const focus = c.chipFocus
     const d = 1 - Math.exp(-delta * 6)
     const t = state.clock.elapsedTime
+
+    // Cull the whole assembly from the transparent pass when fully hidden.
+    if (root.current) root.current.visible = o > 0.002
+
     const idle = e * 0.0004
 
-    if (boardG.current) {
-      _v.copy(BOARD.base).addScaledVector(BOARD.off, e)
-      boardG.current.position.copy(_v)
-      boardG.current.position.y += Math.sin(t * 0.9) * idle
+    const place = (
+      ref: RefObject<THREE.Group | null>,
+      def: typeof BOARD,
+      focusPush = 0,
+      idleAmp = 0,
+    ) => {
+      if (!ref.current) return
+      const g = staged(e, def.stagger)
+      _v.set(def.x + def.px * g, def.y, def.z + (def.zOff) * g + focusPush * focus)
+      ref.current.position.copy(_v)
+      if (idleAmp > 0 && focus < 0.5) {
+        ref.current.position.y += Math.sin(t * 0.9 + idleAmp) * idle
+      }
     }
-    if (battG.current) {
-      _v.copy(BATT.base).addScaledVector(BATT.off, e)
-      battG.current.position.copy(_v)
-      battG.current.position.y += Math.cos(t * 0.8) * idle
-    }
-    if (camG.current) {
-      _v.copy(CAM.base).addScaledVector(CAM.off, e)
-      camG.current.position.copy(_v)
-    }
-    if (coilG.current) {
-      _v.copy(COIL.base).addScaledVector(COIL.off, e)
-      coilG.current.position.copy(_v)
-    }
-    if (subG.current) {
-      _v.copy(SUB.base).addScaledVector(SUB.off, e)
-      subG.current.position.copy(_v)
-    }
-    if (antG.current) {
-      _v.copy(ANT.base).addScaledVector(ANT.off, e)
-      antG.current.position.copy(_v)
-    }
+
+    // Coil and battery part toward the rear glass first; the sub-board and
+    // camera follow; the main board (with the A1 Ultra) lifts last, closest to
+    // the diving camera, and keeps rising while the die is the subject.
+    place(coilG, COIL, 0, 1)
+    place(battG, BATT, 0, 2)
+    place(subG, SUB, 0, 3)
+    place(camG, CAM, focus * 0.003, 0)
+    place(boardG, BOARD, focus * 0.005, 4)
+    place(antG, ANT, 0, 5)
+    place(midG, MID, 0, 6)
 
     // Fade the whole stack together; the board + chip stay strongest while
     // the peripheral hardware (shields, battery, cameras) pulls back on focus.
@@ -134,37 +151,70 @@ export function Internals({
     // Camera sensors breathe.
     m.sensor.emissiveIntensity = 0.7 + 0.25 * Math.sin(t * 1.1)
 
-    // Ghost silhouette always follows the internals' visibility.
-    GHOST_LINE.opacity = o * (0.2 + 0.06 * Math.sin(t * 1.6))
+    // Ghost silhouette tracks visibility and breathes with separation + focus,
+    // so it feels like an energy boundary rather than a static cage.
+    GHOST_LINE.opacity = o * (0.2 + 0.06 * Math.sin(t * 1.6) + e * 0.14 + focus * 0.2)
   })
 
   return (
     <group ref={groupRef}>
-      <group ref={coilG}>
-        <WpcCoil m={m} />
-      </group>
-      <group ref={camG}>
-        <CameraModules m={m} />
-      </group>
-      <group ref={boardG}>
-        <MainBoardAndSoC m={m} />
-      </group>
-      <group ref={battG}>
-        <Battery m={m} />
-      </group>
-      <group ref={subG}>
-        <SubBoard m={m} />
-      </group>
-      <group ref={antG}>
-        <AntennaPlates m={m} />
-        <FrontSensors m={m} />
-      </group>
+      <group ref={root}>
+        <group ref={coilG}>
+          <WpcCoil m={m} />
+        </group>
+        <group ref={camG}>
+          <CameraModules m={m} />
+        </group>
+        <group ref={boardG}>
+          <MainBoardAndSoC m={m} />
+        </group>
+        <group ref={battG}>
+          <Battery m={m} />
+        </group>
+        <group ref={subG}>
+          <SubBoard m={m} />
+        </group>
+        <group ref={antG}>
+          <AntennaPlates m={m} />
+          <FrontSensors m={m} />
+        </group>
 
-      {/* Structural rebar in front of the internals */}
-      <MidframeRails m={m} />
+        {/* Structural spine mid-frame; it barely parts so the stack never
+            feels like it is coming unglued. */}
+        <group ref={midG}>
+          <MidframeRails m={m} />
+        </group>
+
+        {/* Connector ribbons bridging the parted board / battery gap: the
+            sliver of "still wired together" that sells the exploded view. */}
+        <FlexBundle m={m} />
+      </group>
 
       {/* Silhouette containment frame */}
       <GhostShellOutline m={{ ghost: GHOST_LINE }} />
+    </group>
+  )
+}
+
+/** Static flex ribbons that visually bridge the parted layers. */
+function FlexBundle({ m }: { m: ReturnType<typeof createInternalsMaterials> }) {
+  const ribbons = [
+    { x: -0.011, len: 0.03, w: 0.0022 },
+    { x: 0, len: 0.034, w: 0.002 },
+    { x: 0.011, len: 0.028, w: 0.0018 },
+  ]
+  return (
+    <group>
+      {ribbons.map((r) => (
+        <mesh key={r.x} material={m.flex} position={[r.x, 0.012, 0.0011]}>
+          <boxGeometry args={[r.w, r.len, 0.00028]} />
+        </mesh>
+      ))}
+      {ribbons.map((r) => (
+        <mesh key={r.x} material={m.gold} position={[r.x, -0.014, 0.00014]}>
+          <boxGeometry args={[r.w * 0.5, 0.004, 0.0004]} />
+        </mesh>
+      ))}
     </group>
   )
 }

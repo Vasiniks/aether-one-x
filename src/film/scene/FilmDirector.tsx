@@ -1,5 +1,5 @@
 import { useFrame } from '@react-three/fiber'
-import type { RefObject } from 'react'
+import type { MutableRefObject, RefObject } from 'react'
 import * as THREE from 'three'
 import type { MotionValue } from 'framer-motion'
 import { sampleFilm, computeFilmStates } from '../camera'
@@ -36,31 +36,54 @@ const SHELL_MATS = [
 ] as const
 
 const ENV_MATS = ['frame', 'back', 'island', 'flashRing'] as const
-const SCRATCH: { look: THREE.Vector3; targetFov: number; screenTick: number; screenMode: ScreenMode } = {
+
+/** Distances the shell layers travel apart while the internals are staged. */
+const GLASS_LIFT = 0.0045
+const BACK_LIFT = 0.0036
+
+const SCRATCH: {
+  look: THREE.Vector3
+  targetFov: number
+  screenTick: number
+  screenMode: ScreenMode
+  envInt: number
+  lastShellGhost: number
+  lastEnvInt: number
+} = {
   look: new THREE.Vector3(),
   targetFov: 18,
   screenTick: 0,
   screenMode: 'off',
+  envInt: 0.9,
+  lastShellGhost: -1,
+  lastEnvInt: -1,
 }
 
 const _ray = new THREE.Raycaster()
 
 /**
  * The single frame director: samples the master timeline, then writes camera,
- * responsive FOV, phone pose, x-ray dissolve, screen, internals and the hover
- * pick without any React re-render. Authored curves are pre-eased in camera.ts;
- * only pose and FOV get a light damp so movement feels weighted.
+ * responsive FOV, phone pose, x-ray dissolve, shell split, screen, internals
+ * and the hover pick without any React re-render. Authored curves are already
+ * eased in camera.ts; pose and FOV carry a light damp so camera work feels
+ * weighted rather than steppy.
  */
 export function FilmDirector({
   progress,
   heroRef,
   internals,
   internalsGroup,
+  shellRefs,
 }: {
   progress: MotionValue<number>
   heroRef: RefObject<THREE.Group | null>
   internals: RefObject<InternalsControl | null>
   internalsGroup: RefObject<THREE.Group | null>
+  shellRefs: {
+    frame: MutableRefObject<THREE.Group | null>
+    back: MutableRefObject<THREE.Group | null>
+    glass: MutableRefObject<THREE.Group | null>
+  }
 }) {
   useFrame((state, delta) => {
     const p = progress.get()
@@ -104,8 +127,9 @@ export function FilmDirector({
       t.py *= by
     }
 
+    // Pose and FOV share one feel: slow weight on big moves, no overshoot.
     if (Math.abs(SCRATCH.targetFov - targetFov) > 0.001) {
-      SCRATCH.targetFov += (targetFov - SCRATCH.targetFov) * (REDUCED ? 1 : 1 - Math.exp(-delta * 12))
+      SCRATCH.targetFov += (targetFov - SCRATCH.targetFov) * (REDUCED ? 1 : 1 - Math.exp(-delta * 9))
     }
     if (Math.abs(cam.fov - SCRATCH.targetFov) > 0.01) {
       cam.fov = SCRATCH.targetFov
@@ -130,8 +154,8 @@ export function FilmDirector({
     }
 
     // X-ray dissolve: the outer shell + edge hardware fades together as the
-    // internals take over; the display layer stays glassy and merely dims so a
-    // ghosted outline still owns the silhouette.
+    // internals take over; the front glass stays and merely dims so a ghosted
+    // outline still owns the silhouette.
     const ghost = s.shellGhost > 0.01
     if (ghost !== FILM_MATERIALS.frame.transparent) {
       for (const name of SHELL_MATS) {
@@ -140,14 +164,24 @@ export function FilmDirector({
         if (ghost) mat.opacity = Math.max(0.02, 1 - s.shellGhost * 0.9)
         else mat.opacity = 1
       }
-    } else if (ghost) {
+      SCRATCH.lastShellGhost = ghost ? s.shellGhost : -1
+    } else if (ghost && Math.abs(s.shellGhost - SCRATCH.lastShellGhost) > 0.004) {
+      SCRATCH.lastShellGhost = s.shellGhost
       for (const name of SHELL_MATS) {
         FILM_MATERIALS[name].opacity = Math.max(0.02, 1 - s.shellGhost * 0.9)
       }
     }
-    // Display + glass are always transparent and follow their own fades.
+
+    // Shell split: the front glass stack and rear ceramic part from the frame
+    // while the internals parade, so the molecular read stays physical.
+    const split = s.shellSplit
+    if (shellRefs.glass.current) shellRefs.glass.current.position.z = split * GLASS_LIFT
+    if (shellRefs.back.current) shellRefs.back.current.position.z = -split * BACK_LIFT
+
+    // Display + glass follow their own fades. The glass keeps real presence in
+    // solid acts (gloss + specular read) and thins out only on the x-ray stage.
     FILM_MATERIALS.display.opacity = Math.max(0.02, 1 - s.shellGhost * 0.95)
-    FILM_MATERIALS.screen.opacity = Math.max(0.03, 0.09 - s.shellGhost * 0.06)
+    FILM_MATERIALS.screen.opacity = Math.max(0.05, 0.42 - s.shellGhost * 0.36)
 
     // Live display: emissive panel brightness + per-act mode.
     const screen = getLiveScreen()
@@ -162,13 +196,19 @@ export function FilmDirector({
       SCRATCH.screenTick = 0
       screen.tick(state.clock.elapsedTime)
     }
-    FILM_MATERIALS.display.emissiveIntensity = s.screenOn * (actMode === 'display' ? 1.15 : 0.8)
-    FILM_MATERIALS.display.color.set('#05080e')
+    // The panel dims under the ghost shell so the hardware dominates the read.
+    const dim = 1 - s.shellGhost * 0.75
+    FILM_MATERIALS.display.emissiveIntensity = s.screenOn * dim * (actMode === 'display' ? 1.35 : 0.95)
 
-    // IBL response per act (lights the machined titanium).
+    // IBL response per act (lights the machined titanium). Damped and gated so
+    // the strip lights glide instead of snapping between scenes.
     const envInt = STAGE_LIGHTING[act]?.envIntensity ?? 0.9
-    for (const name of ENV_MATS) {
-      FILM_MATERIALS[name].envMapIntensity = envInt
+    SCRATCH.envInt += (envInt - SCRATCH.envInt) * (REDUCED ? 1 : 1 - Math.exp(-delta * 5))
+    if (Math.abs(SCRATCH.envInt - SCRATCH.lastEnvInt) > 0.004) {
+      SCRATCH.lastEnvInt = SCRATCH.envInt
+      for (const name of ENV_MATS) {
+        FILM_MATERIALS[name].envMapIntensity = SCRATCH.envInt
+      }
     }
 
     // Internals control plane.

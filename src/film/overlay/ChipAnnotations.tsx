@@ -1,10 +1,12 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { motion, useTransform, useReducedMotion } from 'motion/react'
+import type { MotionValue } from 'motion/react'
+import type { ReactNode } from 'react'
 
 /**
- * Art-directed spec annotations for the Aether A1 Ultra beat. Small anchored
- * tags hang off the die the way a silicon datasheet draws block diagrams -
- * dots with hairlines radiating from the chip outline. Screen-space only, so
- * they stay legible at every viewport.
+ * Art-directed spec annotations for the Aether A1 Ultra beat. Tags hang off
+ * the die on hairlines that point back at it, datasheet style, over a faint
+ * die outline and coordinate grid. Reveal is scroll-driven: the labels file in
+ * one by one as the camera completes the dive into the cavity.
  */
 
 interface ChipTag {
@@ -12,39 +14,124 @@ interface ChipTag {
   detail: string
   x: string
   y: string
-  from: 'top' | 'bottom' | 'left' | 'right'
+  side: 'top' | 'bottom' | 'left' | 'right'
 }
 
 const TAGS: ChipTag[] = [
-  { label: '3 NM', detail: 'SECOND-GEN EUV', x: '50%', y: '20%', from: 'bottom' },
-  { label: '8-CORE CPU', detail: '2x4.4 GHZ', x: '72%', y: '39%', from: 'left' },
-  { label: '14-CORE GPU', detail: 'HW RAY-TRACING', x: '70%', y: '60%', from: 'top' },
-  { label: '25 TOPS NPU', detail: 'ON-DEVICE AETHER', x: '28%', y: '44%', from: 'right' },
-  { label: 'A1 ULTRA', detail: '171 mm²', x: '33%', y: '70%', from: 'top' },
+  { label: 'A1 ULTRA', detail: '171 mm²', x: '50%', y: '24%', side: 'bottom' },
+  { label: '3 NM', detail: 'SECOND-GEN EUV', x: '74%', y: '38%', side: 'left' },
+  { label: '8-CORE CPU', detail: '2x4.4 GHZ', x: '76%', y: '62%', side: 'top' },
+  { label: '25 TOPS NPU', detail: 'ON-DEVICE', x: '30%', y: '60%', side: 'right' },
+  { label: '14-CORE GPU', detail: 'HW RAY-TRACING', x: '27%', y: '82%', side: 'top' },
 ]
 
-export function ChipAnnotations() {
+const RULE = 36
+
+function Tag({ tag, index, local, reduce }: {
+  tag: ChipTag
+  index: number
+  local: MotionValue<number>
+  reduce: boolean
+}) {
+  const from = 0.55 + index * 0.06
+  const opacity = useTransform(local, [from, from + 0.05], [0, 1])
+  const drift = useTransform(local, [from, from + 0.09], [12, 0])
+
+  const dot = 'absolute top-1/2 left-1/2 z-10 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-300/80 bg-sky-300/25'
+
+  let rule: ReactNode
+  let label: ReactNode
+  if (tag.side === 'left') {
+    rule = (
+      <span className="absolute top-1/2 right-[calc(100%-2px)] h-px -translate-y-1/2 origin-right bg-gradient-to-r from-sky-300/70 to-transparent" style={{ width: RULE }} />
+    )
+    label = (
+      <span className="absolute top-1/2 right-[calc(100%+34px)] -translate-y-1/2 text-right">
+        <TagText tag={tag} />
+      </span>
+    )
+  } else if (tag.side === 'right') {
+    rule = (
+      <span className="absolute top-1/2 left-[calc(100%-2px)] h-px -translate-y-1/2 bg-gradient-to-l from-sky-300/70 to-transparent" style={{ width: RULE }} />
+    )
+    label = (
+      <span className="absolute top-1/2 left-[calc(100%+8px)] -translate-y-1/2 text-left">
+        <TagText tag={tag} />
+      </span>
+    )
+  } else if (tag.side === 'top') {
+    rule = (
+      <span className="absolute left-1/2 bottom-[calc(100%-2px)] w-px origin-bottom bg-gradient-to-t from-sky-300/70 to-transparent" style={{ height: RULE }} />
+    )
+    label = (
+      <span className="absolute bottom-[calc(100%+34px)] left-1/2 -translate-x-1/2 text-center">
+        <TagText tag={tag} />
+      </span>
+    )
+  } else {
+    rule = (
+      <span className="absolute left-1/2 top-[calc(100%-2px)] w-px origin-top bg-gradient-to-b from-sky-300/70 to-transparent" style={{ height: RULE }} />
+    )
+    label = (
+      <span className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 text-center">
+        <TagText tag={tag} />
+      </span>
+    )
+  }
+
+  return (
+    <motion.div
+      className="absolute"
+      style={{ left: tag.x, top: tag.y, opacity, x: reduce ? 0 : drift }}
+    >
+      <span className={dot} />
+      <span className="absolute top-1/2 left-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sky-300/25" aria-hidden="true" />
+      {rule}
+      {label}
+    </motion.div>
+  )
+}
+
+function TagText({ tag }: { tag: ChipTag }) {
+  return (
+    <>
+      <p className="whitespace-nowrap font-mono text-[10px] font-semibold tracking-[0.22em] text-sky-200">
+        {tag.label}
+      </p>
+      <p className="mt-0.5 whitespace-nowrap font-mono text-[9px] tracking-[0.18em] text-white/45">
+        {tag.detail}
+      </p>
+    </>
+  )
+}
+
+export function ChipAnnotations({ local }: { local: MotionValue<number> }) {
   const reduce = useReducedMotion()
+
+  // The whole board fades in around the dive, then holds.
+  const boardOpacity = useTransform(local, [0.5, 0.62], [0, 1])
 
   return (
     <div className="absolute inset-0 hidden lg:block" aria-hidden="true">
+      {/* Die outline + coordinate grid reference */}
+      <motion.div
+        className="absolute left-1/2 top-[44%] h-[24vmin] w-[24vmin] -translate-x-1/2 -translate-y-1/2"
+        style={{ opacity: boardOpacity }}
+      >
+        <div className="absolute inset-0 border border-white/12" />
+        <div className="absolute -top-3 left-0 h-px w-5 bg-white/20" />
+        <div className="absolute -top-3 right-0 h-px w-5 bg-white/20" />
+        <div className="absolute -bottom-3 left-0 h-px w-5 bg-white/20" />
+        <div className="absolute -bottom-3 right-0 h-px w-5 bg-white/20" />
+        <div className="absolute top-0 left-1/2 h-full w-px border-l border-dashed border-white/6" />
+        <div className="absolute top-1/2 left-0 h-px w-full border-t border-dashed border-white/6" />
+        <span className="absolute -top-5 left-1/2 -translate-x-1/2 font-mono text-[9px] tracking-[0.3em] text-white/30">
+          A1 ULTRA
+        </span>
+      </motion.div>
+
       {TAGS.map((tag, i) => (
-        <motion.div
-          key={tag.label}
-          initial={reduce ? false : { opacity: 0, scale: 0.92, x: tag.from === 'left' ? 12 : tag.from === 'right' ? -12 : 0 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          transition={{ delay: 0.15 + i * 0.12, duration: 0.5, ease: 'easeOut' }}
-          className="absolute"
-          style={{ left: tag.x, top: tag.y }}
-        >
-          {/* Anchor dot + short hairline pointing at the die */}
-          <span className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full border border-sky-300/80 bg-sky-300/25" />
-          <span className="absolute top-1/2 h-px w-9 -translate-y-1/2 bg-gradient-to-r from-white/25 to-transparent" />
-          <div className="translate-x-12 -translate-y-1/2">
-            <p className="font-mono text-[10px] font-semibold tracking-[0.22em] text-sky-200">{tag.label}</p>
-            <p className="mt-0.5 font-mono text-[9px] tracking-[0.18em] text-white/45">{tag.detail}</p>
-          </div>
-        </motion.div>
+        <Tag key={tag.label} tag={tag} index={i} local={local} reduce={!!reduce} />
       ))}
     </div>
   )
