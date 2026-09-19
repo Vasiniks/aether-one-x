@@ -43,7 +43,7 @@ export const FINISH_PARAMS: Record<FinishId, FinishParams> = {
     key: 'obsidian',
     backColor: '#0d0d11',
     backMetalness: 0,
-    backRoughness: 0.24,
+    backRoughness: 0.34,
     islandColor: '#0f0f14',
     frameColor: '#7a8089',
     frameRoughness: 0.3,
@@ -53,7 +53,7 @@ export const FINISH_PARAMS: Record<FinishId, FinishParams> = {
     key: 'titanium',
     backColor: '#a9b0bc',
     backMetalness: 1,
-    backRoughness: 0.22,
+    backRoughness: 0.34,
     islandColor: '#b6bdc9',
     frameColor: '#b5bcc7',
     frameRoughness: 0.3,
@@ -63,7 +63,7 @@ export const FINISH_PARAMS: Record<FinishId, FinishParams> = {
     key: 'glacier',
     backColor: '#e6ecf5',
     backMetalness: 0,
-    backRoughness: 0.1,
+    backRoughness: 0.32,
     islandColor: '#edf2f9',
     frameColor: '#acb8cd',
     frameRoughness: 0.3,
@@ -125,7 +125,9 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     anisotropy: params.frameAnisotropy,
     // Roughness anisotropy sheen rotates with the long axis of the phone.
     anisotropyRotation: Math.PI / 2,
-    envMapIntensity: 1.25,
+    // Matched to the shared studio: metal reads crisp but never clips. The
+    // film re-drives this channel per act, the product page keeps the seed.
+    envMapIntensity: 1.2,
   })
 
   const back = makeMaterial({
@@ -136,17 +138,21 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     map: ceramic.color,
     clearcoat: 0.7,
     clearcoatRoughness: 0.2,
-    envMapIntensity: 1.4,
+    // Ceramic reflection is broad and soft: higher roughness dampens the env
+    // specular, clearcoat carries a faint sheen on top of the mottle.
+    envMapIntensity: 1.35,
   })
 
   const island = makeMaterial({
     color: new Color(params.islandColor),
     metalness: params.backMetalness,
-    roughness: Math.min(0.16, params.backRoughness * 0.8),
+    roughness: Math.min(0.28, params.backRoughness * 0.8),
     roughnessMap: ceramic.data,
     map: ceramic.color,
     clearcoat: 0.75,
     clearcoatRoughness: 0.15,
+    // Same ceramic family, slightly more polished than the back slab so the
+    // module reads machined but stays visually one material.
     envMapIntensity: 1.5,
   })
 
@@ -155,8 +161,11 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
     metalness: 0,
     roughness: 0.045,
     clearcoat: 1,
-    clearcoatRoughness: 0.04,
-    envMapIntensity: 0.9,
+    clearcoatRoughness: 0.045,
+    // A restrained env band reads as the surface highlight: it tracks the
+    // glass slab geometry (no decal), held just under 1 so the display
+    // panel keeps the attention in lit shots.
+    envMapIntensity: 0.95,
   })
 
   const display = makeMaterial({
@@ -171,7 +180,9 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
   })
 
   const lensRing = makeMaterial({
-    color: new Color('#cfd6df'),
+    // Faint anodized tint on the machined collar, subtle enough that the
+    // module still reads as titanium rather than coated hardware.
+    color: new Color('#c9d2de'),
     metalness: 1,
     roughness: 0.16,
     envMapIntensity: 1.3,
@@ -180,13 +191,15 @@ export function createPhoneMaterials(params: FinishParams): PhoneMaterialSet {
   const lensGlass = makeMaterial({
     color: new Color('#0a101d'),
     metalness: 0,
-    roughness: 0.02,
+    roughness: 0.025,
     roughnessMap: lensGloss,
     clearcoat: 1,
     clearcoatRoughness: 0.05,
-    iridescence: 0.25,
+    iridescence: 0.2,
     iridescenceIOR: 1.3,
-    envMapIntensity: 1.8,
+    // One shared sheet across all three lenses: env gain is tuned here for a
+    // crisp catch-sparkle without clipping, at the cost of any per-lens split.
+    envMapIntensity: 1.9,
   })
 
   const lensBarrel = makeMaterial({
@@ -325,17 +338,17 @@ export function createLogoTexture(): CanvasTexture {
   return texture
 }
 
-function colorFromCanvas(canvas: HTMLCanvasElement): CanvasTexture {
+function colorFromCanvas(canvas: HTMLCanvasElement, anisotropy = 4): CanvasTexture {
   const texture = new CanvasTexture(canvas)
   texture.colorSpace = 'srgb'
-  texture.anisotropy = 8
+  texture.anisotropy = anisotropy
   return texture
 }
 
-function dataFromCanvas(canvas: HTMLCanvasElement): CanvasTexture {
+function dataFromCanvas(canvas: HTMLCanvasElement, anisotropy = 1): CanvasTexture {
   const texture = new CanvasTexture(canvas)
   texture.colorSpace = NoColorSpace
-  texture.anisotropy = 8
+  texture.anisotropy = anisotropy
   return texture
 }
 
@@ -364,8 +377,8 @@ export function createCeramicMottleTexture(): { color: CanvasTexture; data: Canv
       ctx.fill()
     }
   }
-  const color = colorFromCanvas(canvas)
-  const data = dataFromCanvas(canvas)
+  const color = colorFromCanvas(canvas, 1)
+  const data = dataFromCanvas(canvas, 1)
   return { color, data }
 }
 
@@ -374,22 +387,34 @@ export function createBrushTexture(): CanvasTexture {
   canvas.width = canvas.height = 64
   const ctx = canvas.getContext('2d')
   if (ctx) {
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, 64, 64)
     let v = 77 * 7919 % 65536
     const rng = () => {
       v = (v * 9301 + 49297) % 233280
       return v / 233280
     }
+    // Linear machining reads through the green channel (roughnessMap ignores
+    // alpha): fine parallel grooves plus a couple of deeper tool passes, with
+    // a smooth jog along the axis so lines stay coherent, never per-pixel.
+    // The two-stop spread (~0.77 / ~0.98) keeps the roughness contrast subtle
+    // (~12% of the base frame roughness) while still visible in macro.
+    const grooves: number[] = []
+    let phase = 0
     for (let x = 0; x < 64; x++) {
-      ctx.fillStyle = `rgba(244,244,246,${0.25 + rng() * 0.35})`
-      ctx.fillRect(x, 0, rng() > 0.8 ? 2 : 1, 64)
+      phase = phase * 0.86 + (rng() - 0.5) * 0.5
+      let g = x % 2 === 0 ? 0.77 : 0.98
+      g += (rng() - 0.5) * 0.05 + phase * 0.018
+      grooves.push(Math.min(0.99, Math.max(0.68, g)))
     }
-    ctx.fillStyle = 'rgba(240,240,243,0.5)'
-    ctx.fillRect(20, 0, 2, 64)
-    ctx.fillRect(44, 0, 3, 64)
+    for (const cx of [20, 21, 44, 45]) {
+      grooves[cx] = 0.62
+    }
+    for (let x = 0; x < 64; x++) {
+      const g = Math.round(grooves[x] * 255)
+      ctx.fillStyle = `rgb(${g},${g},${g})`
+      ctx.fillRect(x, 0, 1, 64)
+    }
   }
-  return dataFromCanvas(canvas)
+  return dataFromCanvas(canvas, 1)
 }
 
 export function createLensGlossMap(): CanvasTexture {
@@ -397,14 +422,17 @@ export function createLensGlossMap(): CanvasTexture {
   canvas.width = canvas.height = 64
   const ctx = canvas.getContext('2d')
   if (ctx) {
-    const g = ctx.createRadialGradient(32, 32, 3, 32, 32, 30)
-    g.addColorStop(0, '#c0c0c0')
-    g.addColorStop(0.45, '#dcdcdc')
-    g.addColorStop(1, '#f5f5f5')
+    // Tight center-to-edge gradient in the green channel drives roughness:
+    // a crisper center catches the sparkle, the rim relaxes to a soft inner
+    // gradient so the sheet reads as one polished lens, not a flat decal.
+    const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30)
+    g.addColorStop(0, '#a8a8b0')
+    g.addColorStop(0.4, '#cfcfd6')
+    g.addColorStop(1, '#f2f2f4')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, 64, 64)
   }
-  return dataFromCanvas(canvas)
+  return dataFromCanvas(canvas, 1)
 }
 
 /** A procedural aurora wallpaper for the display. */

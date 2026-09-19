@@ -342,7 +342,7 @@ export function createBatteryLabelTexture(): THREE.CanvasTexture {
 
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
+  tex.anisotropy = 1
   return tex
 }
 
@@ -365,10 +365,13 @@ export function createAntennaTexture(): THREE.CanvasTexture {
   ctx.stroke()
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 1
   return tex
 }
 
-/** 128px graphite heat-spreader weave: crossed fibre strokes on dark foil. */
+/** 128px graphite heat-spreader weave: crossed fibre strokes on dark foil,
+ * with the perimeter copper via rows baked in (they tile with the foil, so
+ * the micro-via read survives without fourteen separate circle meshes). */
 export function createGraphiteTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 128
@@ -403,32 +406,59 @@ export function createGraphiteTexture(): THREE.CanvasTexture {
     ctx.fillRect(10 + i * 42, 40 + i * 18, 14, 2)
   }
   ctx.globalAlpha = 1
+
+  // Perimeter via rows, baked as gold rings with dark centres
+  ctx.fillStyle = '#7d6f36'
+  for (const row of [8, 120]) {
+    for (let i = 0; i < 7; i++) {
+      ctx.beginPath()
+      ctx.arc(8 + i * 18.5, row, 1.3, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  ctx.fillStyle = '#342d19'
+  for (const row of [8, 120]) {
+    for (let i = 0; i < 7; i++) {
+      ctx.beginPath()
+      ctx.arc(8 + i * 18.5, row, 0.6, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 1
   return tex
 }
 
+/** 64px map + roughness pair; anisotropy is useless on these small, mostly
+ * face-on maps so it stays at 1 (the 512 board face and 1024 die keep 8). */
 function colorFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
+  tex.anisotropy = 1
   return tex
 }
 
 function dataFromCanvas(canvas: HTMLCanvasElement): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas)
   tex.colorSpace = THREE.NoColorSpace
-  tex.anisotropy = 8
+  tex.anisotropy = 1
   return tex
 }
 
+/** 64px stamped-can face: brushed grooves, a crimp rim, an embossed boss, a
+ * cross brace and corner screws, all baked into one map so each shield can is
+ * a single lightweight box instead of nine layered meshes. */
 export function createShieldTexture(): { map: THREE.CanvasTexture; roughness: THREE.CanvasTexture } {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 64
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#f8f8f9'
+  ctx.fillStyle = '#f2f3f5'
   ctx.fillRect(0, 0, 64, 64)
-  ctx.strokeStyle = '#eef0f3'
+
+  // Brushed hold-down grooves
+  ctx.strokeStyle = '#e6e8ec'
   ctx.lineWidth = 1
   for (let y = 3; y < 62; y += 3) {
     ctx.beginPath()
@@ -436,14 +466,86 @@ export function createShieldTexture(): { map: THREE.CanvasTexture; roughness: TH
     ctx.lineTo(62, y + (y % 9 ? 0 : 1))
     ctx.stroke()
   }
-  ctx.strokeStyle = '#e9eaee'
-  ctx.lineWidth = 2
-  ctx.strokeRect(4, 4, 56, 56)
+
+  // Crimp rim frame
+  ctx.strokeStyle = '#d6d9df'
+  ctx.lineWidth = 3
+  ctx.strokeRect(4.5, 4.5, 55, 55)
+  ctx.strokeStyle = '#eef0f3'
   ctx.lineWidth = 1
-  ctx.strokeRect(9, 9, 46, 46)
+  ctx.strokeRect(8.5, 8.5, 47, 47)
+
+  // Embossed centre boss
+  ctx.fillStyle = '#edf0f4'
+  ctx.fillRect(22, 22, 20, 20)
+  ctx.strokeStyle = '#c9cdd5'
+  ctx.lineWidth = 1.5
+  ctx.strokeRect(23, 23, 18, 18)
+
+  // Stamped cross brace
+  ctx.strokeStyle = '#d2d5dc'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(11, 32)
+  ctx.lineTo(53, 32)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(32, 11)
+  ctx.lineTo(32, 53)
+  ctx.stroke()
+
+  // Corner screw bosses
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      const cx = 32 + sx * 24
+      const cy = 32 + sy * 24
+      ctx.fillStyle = '#c3c7ce'
+      ctx.beginPath()
+      ctx.arc(cx, cy, 2.6, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#f7f8fa'
+      ctx.beginPath()
+      ctx.arc(cx - 1, cy - 1, 1, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
   const map = colorFromCanvas(canvas)
   const roughness = dataFromCanvas(canvas)
   return { map, roughness }
+}
+
+/** 128px solder-ball sheet for the A1 Ultra underside: a 7x7 grid (corners
+ * cropped) of shaded dots that reads as micro balls under the lifted
+ * substrate. Replaces the former forty-five sphere meshes; the die face keeps
+ * its real geometry. One 0.0093 plane wears the map at 1.45mm pitch. */
+export function createBgaTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#0d1219'
+  ctx.fillRect(0, 0, 128, 128)
+
+  for (let i = 0; i < 7; i++) {
+    for (let j = 0; j < 7; j++) {
+      if ((i === 0 || i === 6) && (j === 0 || j === 6)) continue
+      const cx = 4 + i * 20
+      const cy = 4 + j * 20
+      const ball = ctx.createRadialGradient(cx - 1.2, cy - 1.4, 0.4, cx, cy, 3.6)
+      ball.addColorStop(0, '#fbdf9e')
+      ball.addColorStop(0.45, '#c8a455')
+      ball.addColorStop(1, '#6f5529')
+      ctx.fillStyle = ball
+      ctx.beginPath()
+      ctx.arc(cx, cy, 3.6, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 1
+  return tex
 }
 
 export function createBatterySeamTexture(): { map: THREE.CanvasTexture; roughness: THREE.CanvasTexture } {
@@ -633,6 +735,19 @@ export function createInternalsMaterials() {
       envMapIntensity: 1.4,
     }),
   )
+  // BGA ball sheet glued to the board dissolve so the lifted substrate keeps
+  // its micro-ball read without the former forty-five sphere draw calls.
+  const bga = transparentMaterial(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#ffffff'),
+      map: createBgaTexture(),
+      metalness: 1,
+      roughness: 0.3,
+      envMapIntensity: 1.2,
+      side: THREE.DoubleSide,
+    }),
+  )
+  fadeFollow(bga, pcb)
   const housing = transparentMaterial(
     new THREE.MeshStandardMaterial({
       color: new THREE.Color('#0b0f16'),
@@ -728,6 +843,7 @@ export function createInternalsMaterials() {
     substrate,
     socDie,
     socPad,
+    bga,
     housing,
     sensor,
     antennaPlate,

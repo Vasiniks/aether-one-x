@@ -22,7 +22,7 @@ interface ChipTag {
 const TAGS: ChipTag[] = [
   { label: 'A1 ULTRA', detail: `${CHIPSET.dieAreaMm2} MM²`, x: '50%', y: '26%', side: 'bottom' },
   { label: `${CHIPSET.processNm} NM`, detail: 'SECOND-GEN EUV', x: '74%', y: '38%', side: 'left' },
-  { label: `${CHIPSET.cpuCores} CPU·${CHIPSET.gpuCores} GPU`, detail: `UP TO ${CHIPSET.cpuClockGhZ} GHZ`, x: '76%', y: '70%', side: 'top' },
+  { label: `${CHIPSET.cpuCores} CPU · ${CHIPSET.gpuCores} GPU`, detail: `UP TO ${CHIPSET.cpuClockGhZ} GHZ`, x: '76%', y: '70%', side: 'top' },
   { label: `${CHIPSET.npuTops} TOPS`, detail: 'DEDICATED NPU', x: '27%', y: '64%', side: 'right' },
 ]
 

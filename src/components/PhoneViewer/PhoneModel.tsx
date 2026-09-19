@@ -40,18 +40,22 @@ const FRAME_BODY_DEPTH = 0.0042
 const RING_BASE_Z = 0.0004
 const RING_DEPTH = 0.0035
 
-/** Raised rear camera plate, seated so it reads ~1mm proud of the ceramic,
- *  and kept fully inside the body silhouette (frame edge at x = -0.0384). */
-const ISLAND = { size: 0.035, x: -0.0208, y: 0.05, depth: 0.0018 }
+/** Rear ceramic panel outboard face: the reference plane every rear feature
+ *  seats against. */
+const CERAMIC_FACE_Z = -0.00391
+
+/** Camera pad milled into the same ceramic blank: a deliberate 0.13mm machined
+ *  step below the rear face, so the pad and the back read as one milled seat.
+ *  Footprint keeps every rear feature inside -0.0383 (frame edge -0.0384). */
+const ISLAND = { size: 0.0342, x: -0.0208, y: 0.05, depth: 0.002 }
 const ISLAND_FACE_Z = -0.0028
 
-/** Flash LED, tucked to the right of the island against the ceramic. */
-const FLASH = { x: -0.004, y: 0.0665, radius: 0.0026 }
+/** Flash LED, tucked above-right of the island, seated flush with the ceramic. */
+const FLASH = { x: -0.004, y: 0.0694, radius: 0.0026 }
 
-/** Stepped titanium plinth the camera island rises from: roots the plate into
- * the ceramic so it reads as seats, never a floating puck. */
-const ISLAND_SEAT = { size: 0.041, depth: 0.0012 }
-const ISLAND_SEAT_Z = -0.0025
+/** Machined seat: a hairline recess routed into the ceramic around the pad
+ *  base, so the pad's step reads as a milled seat and light catches the seam. */
+const ISLAND_SEAT = { size: 0.0349, lip: 0.0002, depth: 0.0002 }
 
 /** Bottom-edge hardware: chamfered USB-C surround, eject pinhole, grille. */
 const PORT_COLLAR = { w: 0.0064, h: 0.0026, r: 0.0013, depth: 0.0005 }
@@ -114,7 +118,7 @@ export function PhoneModel({ materials, groups, animateFocusRing = true, opticsC
 
   const islandGeometry = useMemo(() => createSquircleGeometry(ISLAND.size, ISLAND.size, ISLAND.depth), [])
   const islandSeatGeometry = useMemo(
-    () => createSquircleGeometry(ISLAND_SEAT.size, ISLAND_SEAT.size, ISLAND_SEAT.depth),
+    () => createSeatRingGeometry(ISLAND_SEAT.size, ISLAND_SEAT.lip, ISLAND_SEAT.depth),
     [],
   )
   const frameBodyGeometry = useMemo(() => createFrameBodyGeometry(), [])
@@ -202,10 +206,10 @@ const LENSES: { key: FocusLensId }[] = [{ key: 'main' }, { key: 'ultra' }, { key
           <primitive object={set.back} attach="material" />
         </RoundedBox>
 
-        {/* Stepped titanium plinth: the island's machined seat against the ceramic,
-            rendered under the island so the two read as one assembly. */}
-        <mesh geometry={islandSeatGeometry} position={[ISLAND.x, ISLAND.y, ISLAND_SEAT_Z]} castShadow>
-          <primitive object={set.frame} attach="material" />
+        {/* Machined seat: hairline recess routed into the ceramic around the
+            pad base, so the pad and the back read as one milled surface. */}
+        <mesh geometry={islandSeatGeometry} position={[ISLAND.x, ISLAND.y, ISLAND_FACE_Z]} castShadow>
+          <primitive object={set.island} attach="material" />
         </mesh>
 
         {/* Rear camera system */}
@@ -255,17 +259,26 @@ const LENSES: { key: FocusLensId }[] = [{ key: 'main' }, { key: 'ultra' }, { key
   )
 }
 
-/** Twin-LED flash module beside the camera island. */
+/** Flash module recessed into the ceramic just off the camera pad. Faces sit
+ *  on 0.00008 steps (collar at the surface, LED 0.00008 inboard, well floor
+ *  0.00012 inboard) so no coplanar pair can z-fight at macro distance. */
 function FlashModule({ materials }: { materials: ReturnType<typeof createPhoneMaterials> }) {
   return (
-    <group position={[FLASH.x, FLASH.y, ISLAND_FACE_Z - 0.0001]}>
+    <group position={[FLASH.x, FLASH.y, CERAMIC_FACE_Z - 0.00004]}>
+      {/* Recessed well floor (dark machined collar) */}
+      <mesh rotation={[0, Math.PI, 0]} position={[0, 0, 0.00012]}>
+        <circleGeometry args={[FLASH.radius + 0.00045, 28]} />
+        <primitive object={materials.flashRing} attach="material" />
+      </mesh>
+      {/* Machined collar ring seated at the surface */}
       <mesh rotation={[0, Math.PI, 0]}>
+        <ringGeometry args={[FLASH.radius, FLASH.radius + 0.00045, 28]} />
+        <primitive object={materials.flashRing} attach="material" />
+      </mesh>
+      {/* Cool-white LED face, recessed below the collar */}
+      <mesh rotation={[0, Math.PI, 0]} position={[0, 0, 0.00008]}>
         <circleGeometry args={[FLASH.radius, 28]} />
         <primitive object={materials.flashGlass} attach="material" />
-      </mesh>
-      <mesh rotation={[0, Math.PI, 0]}>
-        <ringGeometry args={[FLASH.radius, FLASH.radius + 0.00032, 28]} />
-        <primitive object={materials.flashRing} attach="material" />
       </mesh>
     </group>
   )
@@ -403,32 +416,72 @@ function Seam({ set, x, y }: { set: ReturnType<typeof createPhoneMaterials>; x: 
   )
 }
 
-/** Rounded-square extruded plate with soft bevels, used for the camera island. */
-function createSquircleGeometry(size: number, sizeY: number, depth: number): THREE.BufferGeometry {
+/** Rounded-square extruded plate with soft bevels, used for the camera pad.
+ *  Depth and bevel pair up so the outboard face lands on the seat plane. */
+function createSquircleGeometry(
+  size: number,
+  sizeY: number,
+  depth: number,
+  bevelSize = 0.00012,
+  bevelThickness = 0.00012,
+): THREE.BufferGeometry {
   const r = Math.min(0.005, size / 2, sizeY / 2)
-  const x = -size / 2
-  const y = -sizeY / 2
   const shape = new THREE.Shape()
-  shape.moveTo(x + r, y)
-  shape.lineTo(x + size - r, y)
-  shape.quadraticCurveTo(x + size, y, x + size, y + r)
-  shape.lineTo(x + size, y + sizeY - r)
-  shape.quadraticCurveTo(x + size, y + sizeY, x + size - r, y + sizeY)
-  shape.lineTo(x + r, y + sizeY)
-  shape.quadraticCurveTo(x, y + sizeY, x, y + sizeY - r)
-  shape.lineTo(x, y + r)
-  shape.quadraticCurveTo(x, y, x + r, y)
+  squirclePath(shape, -size / 2, -size / 2, size, sizeY, r)
 
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth,
     bevelEnabled: true,
-    bevelSize: 0.00055,
-    bevelThickness: 0.0006,
+    bevelSize,
+    bevelThickness,
     bevelSegments: 4,
     curveSegments: 24,
     steps: 1,
   })
-  geometry.translate(0, 0, -(depth / 2 + 0.0006))
+  geometry.translate(0, 0, -(depth / 2 + bevelThickness))
+  return geometry
+}
+
+/** Traces a centered rounded-square outline with the given corner radius. */
+function squirclePath(
+  path: THREE.Shape | THREE.Path,
+  x: number,
+  y: number,
+  size: number,
+  sizeY: number,
+  r: number,
+) {
+  const c = Math.min(r, size / 2, sizeY / 2)
+  path.moveTo(x + c, y)
+  path.lineTo(x + size - c, y)
+  path.quadraticCurveTo(x + size, y, x + size, y + c)
+  path.lineTo(x + size, y + sizeY - c)
+  path.quadraticCurveTo(x + size, y + sizeY, x + size - c, y + sizeY)
+  path.lineTo(x + c, y + sizeY)
+  path.quadraticCurveTo(x, y + sizeY, x, y + sizeY - c)
+  path.lineTo(x, y + c)
+  path.quadraticCurveTo(x, y, x + c, y)
+}
+
+/** Rounded-square outline ring for the machined seat: routed 0.0001 below the
+ *  ceramic rear face around the pad base, so the seam never shares a plane
+ *  with the ceramic and z-fights. */
+function createSeatRingGeometry(size: number, lip: number, depth: number): THREE.BufferGeometry {
+  const r = Math.min(0.005, size / 2)
+  const half = size / 2
+  const shape = new THREE.Shape()
+  squirclePath(shape, -half, -half, size, size, r)
+  const hole = new THREE.Path()
+  squirclePath(hole, -(half - lip), -(half - lip), size - lip * 2, size - lip * 2, r - lip)
+  shape.holes.push(hole)
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: false,
+    curveSegments: 24,
+    steps: 1,
+  })
+  const topZ = CERAMIC_FACE_Z - 0.0001 - ISLAND_FACE_Z
+  geometry.translate(0, 0, topZ - depth)
   return geometry
 }
 

@@ -10,16 +10,49 @@ import { getLiveScreen } from './display/LiveScreen'
 import { StageLighting } from '../lighting/StageLighting'
 import { FilmDirector } from './FilmDirector'
 
-const DPR =
-  typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
-    ? 1.3
-    : Math.min(window.devicePixelRatio || 1, 1.5)
+/**
+ * Film DPR policy: mobile holds 1.3 so the 390x844 macro floor (wider fov on
+ * chip/camera) never spikes fragment cost; desktop caps at 1.5 on typical
+ * panels but steps down on large canvases where buffer pixels explode:
+ * above 1080p class it holds 1.25, at 1440p class and 4K/ultrawide it holds
+ * 1.0. A 3440x1440 panel at 1.5 would shade ~11M pixels per frame; at 1.0 it
+ * shades ~5M with no visible softness at film distances.
+ */
+function resolveFilmDpr(): number {
+  if (typeof window === 'undefined') return 1
+  const dpr = window.devicePixelRatio || 1
+  if (window.matchMedia('(max-width: 767px)').matches) return Math.min(dpr, 1.3)
+  const cssPixels = window.innerWidth * window.innerHeight
+  if (cssPixels > 3686400) return 1
+  if (cssPixels > 2073600) return Math.min(dpr, 1.25)
+  return Math.min(dpr, 1.5)
+}
+
+const DPR = typeof window !== 'undefined' ? resolveFilmDpr() : 1
+
+// Fixed film rig: identity-stable config objects so a parent re-render never
+// freshly allocates a camera or gl props object. R3F guards reapplication via
+// shallow compare, but stable identities also keep the GL-diff path a no-op.
+const CAMERA_POSITION: [number, number, number] = [0, 0, 0.92]
+const FILM_CAMERA = { position: CAMERA_POSITION, fov: 18, near: 0.003, far: 4 }
+const GL_PROPS: THREE.WebGLRendererParameters = {
+  antialias: true,
+  alpha: false,
+  powerPreference: 'high-performance',
+}
 
 function onCreated(state: RootState) {
   // Photographic rolloff instead of raw linear output: highlights and metal
   // speculars stop clipping, blacks hold their shape.
   state.gl.toneMapping = THREE.ACESFilmicToneMapping
   state.gl.toneMappingExposure = 1.1
+  // Shadow scope lock: the film uses one baked ContactShadows plane
+  // (frames=1, 512) and zero shadow-casting lights, so the shadow map stays
+  // off and never pays a depth pass. PhoneModel keeps castShadow flags for
+  // the product pages; they are no-ops here by design.
+  state.gl.shadowMap.enabled = false
+  state.gl.shadowMap.autoUpdate = false
+  state.gl.shadowMap.needsUpdate = false
   if (import.meta.env.DEV) {
     // QA-only handle: read-only GL probes drive the film state in tests.
     ;(window as unknown as { __film?: RootState }).__film = state
@@ -54,8 +87,9 @@ export function FilmScene({ progress, playing = true }: { progress: MotionValue<
     <Canvas
       frameloop={playing ? 'always' : 'never'}
       dpr={DPR}
-      camera={{ position: [0, 0, 0.92], fov: 18, near: 0.003, far: 4 }}
-      gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+      camera={FILM_CAMERA}
+      gl={GL_PROPS}
+      shadows={false}
       onCreated={onCreated}
     >
       <Suspense fallback={null}>

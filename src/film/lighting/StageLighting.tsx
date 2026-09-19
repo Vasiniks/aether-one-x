@@ -9,10 +9,11 @@ import { DEFAULT_STAGE, STAGE_LIGHTING, type StageLightState } from './light-sta
 
 /**
  * The film's studio rig. Key / fill / rim / counter-rim / underside /
- * accent directional lights plus an interior glow all lerp continuously toward
- * the current act's design; the background is a soft vertical gradient that
- * shifts with the story, and the IBL/PMREM environment rides next to it. The
- * phone is the bright object on a dark stage.
+ * accent + interior glow all lerp continuously toward the current act's
+ * design, joined by a rear rim and an optical pin that only wake during the
+ * camera macro; the background is a soft vertical gradient that shifts with
+ * the story, and the IBL/PMREM environment rides next to it. The phone is the
+ * bright object on a dark stage.
  *
  * The environment (ProductEnvironment) is a coherent studio: one soft key
  * panel, a long thin rail that runs the titanium edges, a broad soft slab for
@@ -54,6 +55,9 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
   const under = useRef<THREE.DirectionalLight>(null)
   const accent = useRef<THREE.PointLight>(null)
   const interior = useRef<THREE.PointLight>(null)
+  const rearRim = useRef<THREE.DirectionalLight>(null)
+  const optic = useRef<THREE.PointLight>(null)
+  const opticPos = useRef(new THREE.Vector3(0.03, 0.05, 0.006))
   const ambient = useRef<THREE.AmbientLight>(null)
   const bgMat = useRef<THREE.MeshBasicMaterial>(null)
   const bgTop = useRef(new THREE.Color(DEFAULT_STAGE.topColor))
@@ -75,15 +79,46 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
     if (ambient.current) {
       ambient.current.intensity += (0.08 + target.envIntensity * 0.04 - ambient.current.intensity) * d
     }
-    if (key.current) key.current.intensity += (target.key - key.current.intensity) * d
-    if (fill.current) fill.current.intensity += (target.fill - fill.current.intensity) * d
-    if (rim.current) rim.current.intensity += (target.rim - rim.current.intensity) * d
+    // Key / fill / rim track both intensity and tint, so a warm cell act or a
+    // cool board pass shifts the whole hero trio without a sudden re-grade.
+    if (key.current) {
+      key.current.intensity += (target.key - key.current.intensity) * d
+      _from.copy(key.current.color)
+      _to.set(target.keyColor)
+      key.current.color.copy(_mix.copy(_from).lerp(_to, d))
+    }
+    if (fill.current) {
+      fill.current.intensity += (target.fill - fill.current.intensity) * d
+      _from.copy(fill.current.color)
+      _to.set(target.fillColor)
+      fill.current.color.copy(_mix.copy(_from).lerp(_to, d))
+    }
+    if (rim.current) {
+      rim.current.intensity += (target.rim - rim.current.intensity) * d
+      _from.copy(rim.current.color)
+      _to.set(target.rimColor)
+      rim.current.color.copy(_mix.copy(_from).lerp(_to, d))
+    }
 
     // Counter-rim keeps a hairline on the far edge, and the underside bounce
     // stops shadows from swallowing the bottom of the device. Each has its own
     // per-act value so dark hardware acts keep a lit floor and a silhouette.
     if (rimR.current) rimR.current.intensity += (target.rimR - rimR.current.intensity) * d
     if (under.current) under.current.intensity += (target.under - under.current.intensity) * d
+
+    // Rear rim only engages while the rear faces the camera (camera act), so
+    // the housing edge stays traced as the lens macro breathes in.
+    if (rearRim.current) rearRim.current.intensity += (target.rearRim - rearRim.current.intensity) * d
+
+    // Optical pin: a micro point sparkle parked on the outer lens ring. It
+    // reads only on the macro, sitting just off the ring so the falloff edge
+    // lands on the housing rim instead of the void.
+    if (optic.current) {
+      optic.current.intensity += (target.optic - optic.current.intensity) * d
+      _accPos.set(target.opticPosition[0], target.opticPosition[1], target.opticPosition[2])
+      opticPos.current.lerp(_accPos, d)
+      optic.current.position.copy(opticPos.current)
+    }
 
     // Interior glow moves to the act's energy center and shifts its color
     // (amber over the die, teal at the cell) instead of pinning one static hue.
@@ -131,7 +166,9 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
         Math.abs(bgBase.current.g - paintedBase.current.g) > step ||
         Math.abs(bgBase.current.b - paintedBase.current.b) > step
       if (moved) {
-        bgMat.current.map = makeBackground('#' + bgTop.current.getHexString(), '#' + bgBase.current.getHexString())
+        const next = makeBackground('#' + bgTop.current.getHexString(), '#' + bgBase.current.getHexString())
+        if (bgMat.current.map) bgMat.current.map.dispose()
+        bgMat.current.map = next
         paintedTop.current.copy(bgTop.current)
         paintedBase.current.copy(bgBase.current)
       }
@@ -153,6 +190,8 @@ export function StageLighting({ progress }: { progress: MotionValue<number> }) {
       <directionalLight ref={under} position={[0.4, -0.6, 1.2]} intensity={0.16} color="#8aa3d0" />
       <pointLight ref={accent} position={[0, 0.1, 0.4]} intensity={0.2} distance={1.6} decay={2} color="#7fb0ff" />
       <pointLight ref={interior} position={[0, 0, 0]} intensity={0} distance={1.4} decay={2} color="#7fb4ff" />
+      <directionalLight ref={rearRim} position={[0.7, 0.35, -1.2]} intensity={0} color="#eef3ff" />
+      <pointLight ref={optic} position={[0.03, 0.05, 0.006]} intensity={0} distance={0.5} decay={2} color="#f4f9ff" />
       <ContactShadows position={[0, -0.08, 0]} opacity={0.45} scale={5} blur={3.2} far={0.5} resolution={512} frames={1} />
       <ProductEnvironment />
     </>
@@ -168,11 +207,14 @@ function BackgroundSphere({
 }) {
   return (
     <mesh>
-      <sphereGeometry args={[9, 16, 16]} />
+      {/* Radius 2.5 keeps every wall inside the film camera far plane while the
+          phone and the exploded stack stay deep inside; white base color lets
+          the gradient map show, and BackSide faces the camera. */}
+      <sphereGeometry args={[2.5, 16, 16]} />
       <meshBasicMaterial
         ref={bgMat}
         map={initial}
-        color="#000000"
+        color="#ffffff"
         side={THREE.BackSide}
         depthWrite={false}
         toneMapped={false}

@@ -9,7 +9,10 @@
 
 /** Authored story beats: the 13 act midpoints, sorted ascending. */
 export const GUIDE_NODES: number[] = [
-  0.05, 0.1275, 0.2025, 0.29, 0.4, 0.495, 0.608, 0.78, 0.865, 0.912, 0.94, 0.9625, 0.9875,
+  // Chip rest sits at 0.42, not the act midpoint 0.40: the composed A1 Ultra
+  // macro beat lives at key 0.425, and a slow scroll must settle onto the
+  // contained frame, not mid-dive where the die still clips the top edge.
+  0.05, 0.1275, 0.2025, 0.29, 0.42, 0.495, 0.608, 0.78, 0.865, 0.912, 0.94, 0.9625, 0.9875,
 ]
 
 /** Progress-per-ms rate above which attraction is fully released. */

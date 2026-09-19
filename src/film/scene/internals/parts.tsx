@@ -8,9 +8,88 @@ import type { InternalsMaterials } from './materials'
  * drives the explode / focus animation.
  */
 
-
-
 const AXIS_Z: [number, number, number] = [Math.PI / 2, 0, 0]
+
+/** Gold joint pads along the board's bottom edge (sub-board bridge). */
+const GOLD_JOINT_X = [-0.012, -0.004, 0.004, 0.012]
+
+/** Per-band offset / size pairs for the exposed PCB layer edge. */
+const PCB_BANDS: { p: [number, number]; a: [number, number] }[] = [
+  { p: [0.02166, 0], a: [0.00032, 0.056] },
+  { p: [-0.02166, 0], a: [0.00032, 0.056] },
+  { p: [0, 0.02816], a: [0.043, 0.00032] },
+  { p: [0, -0.02816], a: [0.043, 0.00032] },
+]
+
+/** Peripheral capsules around the die: alternate shield / gold-pad reads. */
+const SOC_CAPSULES: { x: number; y: number; mat: 'socPad' | 'shield' }[] = [
+  { x: -0.0048, y: -0.0048, mat: 'shield' },
+  { x: 0.0048, y: -0.0044, mat: 'socPad' },
+  { x: -0.0042, y: 0.0048, mat: 'shield' },
+  { x: 0.005, y: 0.0042, mat: 'socPad' },
+]
+
+const SOC_ROW_X = [-0.0038, 0, 0.0038]
+
+const SOC_FIDUCIALS: [number, number][] = [
+  [-0.0035, -0.0035],
+  [0.0035, -0.0035],
+  [-0.0035, 0.0035],
+  [0.0035, 0.0035],
+]
+
+/** Foil seam ridge strips around the battery label face. */
+const BATTERY_SEAMS: { p: [number, number]; a: [number, number] }[] = [
+  { p: [0.0159, 0], a: [0.0005, 0.05] },
+  { p: [-0.0159, 0], a: [0.0005, 0.05] },
+  { p: [0, 0.0248], a: [0.032, 0.0005] },
+  { p: [0, -0.0248], a: [0.032, 0.0005] },
+]
+
+/** Camera barrel placements behind the rear island. */
+const CAM_BARRELS: { x: number; y: number; r: number }[] = [
+  { x: -0.0065, y: 0.0065, r: 0.007 },
+  { x: 0.008, y: 0.0068, r: 0.0056 },
+  { x: 0.0005, y: -0.0072, r: 0.0056 },
+]
+
+const CAM_PADS: [number, number][] = [
+  [0.0018, 0.0018],
+  [-0.0018, 0.0018],
+  [0.0018, -0.0018],
+  [-0.0018, -0.0018],
+]
+
+/** Sub-board passive chips and USB-C pin offsets. */
+const SUB_CHIPS: [number, number][] = [
+  [-0.009, 0.0015],
+  [0.009, 0.002],
+]
+
+const USB_PINS = [-0.00135, -0.00045, 0.00045, 0.00135]
+
+/** Midframe spine ribs and fastener boss positions. */
+const MIDF_RIBS = [-0.042, -0.03, -0.018, -0.004, 0.004, 0.018, 0.032, 0.048]
+const MIDF_SCREWS = [-0.052, -0.036, -0.02, -0.004, 0.012, 0.028, 0.044, 0.058]
+
+/** Antenna plate positions (four corners). */
+const ANTENNA_CORNERS: [number, number][] = [
+  [0.0315, 0.066],
+  [-0.0315, 0.066],
+  [0.0315, -0.066],
+  [-0.0315, -0.066],
+]
+
+const FRONT_SENSOR_X = [-0.0014, 0.0016]
+
+/** Precomputed gold-contact offsets per connector pin count. */
+const CONTACT_OFFSETS: Record<number, number[]> = {
+  4: [-1.5, -0.5, 0.5, 1.5],
+  5: [-2, -1, 0, 1, 2],
+}
+
+/** Silhouette rod planes on the front and rear faces. */
+const GHOST_SHELL_Z = [0.00392, -0.0039]
 
 /** Main board: PCB with visible layer edges, trace face, shields embossed,
  * discrete components (caps / crystals / cans / RAM stacks), connector
@@ -51,7 +130,7 @@ export function MainBoardAndSoC({ m }: { m: InternalsMaterials }) {
       <Shield m={m} x={-0.012} y={-0.014} w={0.011} d={0.008} h={0.001} />
 
       {/* Gold connector row to the sub-board */}
-      {[-0.012, -0.004, 0.004, 0.012].map((x) => (
+      {GOLD_JOINT_X.map((x) => (
         <mesh key={x} material={m.gold} position={[x, -0.0305, 0.0006]}>
           <boxGeometry args={[0.0022, 0.0028, 0.001]} />
         </mesh>
@@ -77,17 +156,9 @@ export function MainBoardAndSoC({ m }: { m: InternalsMaterials }) {
 /** Stacked FR4 / copper bands hugging the board silhouette — the exposed
  * layer count reads as real 14-layer hardware on the lift. */
 function PcbLayerEdge({ m }: { m: InternalsMaterials }) {
-  const W = 0.043
-  const H = 0.056
-  const bands: { p: [number, number]; a: [number, number] }[] = [
-    { p: [W / 2 + 0.00016, 0], a: [0.00032, H] },
-    { p: [-W / 2 - 0.00016, 0], a: [0.00032, H] },
-    { p: [0, H / 2 + 0.00016], a: [W, 0.00032] },
-    { p: [0, -H / 2 - 0.00016], a: [W, 0.00032] },
-  ]
   return (
     <>
-      {bands.map((b, i) => (
+      {PCB_BANDS.map((b, i) => (
         <group key={i} position={[b.p[0], b.p[1], 0]}>
           <mesh material={m.pcb} position={[0, 0, -0.00058]}>
             <boxGeometry args={[b.a[0], b.a[1], 0.00058]} />
@@ -121,7 +192,6 @@ function BoardConnector({
   pitch: number
   pins: number
 }) {
-  const half = (pins - 1) / 2
   return (
     <group position={[x, y, 0.0004]}>
       <RoundedBox args={[w, 0.003, 0.00085]} radius={0.0002} smoothness={2}>
@@ -139,7 +209,7 @@ function BoardConnector({
         <boxGeometry args={[w - 0.0006, 0.00045, 0.0007]} />
       </mesh>
       {/* Gold finger contacts in the slot */}
-      {Array.from({ length: pins }, (_, i) => i - half).map((k) => (
+      {CONTACT_OFFSETS[pins].map((k) => (
         <mesh key={k} material={m.gold} position={[k * pitch, 0.0004, 0.00048]}>
           <boxGeometry args={[0.0004, 0.0013, 0.00036]} />
         </mesh>
@@ -148,8 +218,9 @@ function BoardConnector({
   )
 }
 
-/** Stamped shield can with a raised rim, embossed boss, cross brace and corner
- * screw bosses. */
+/** Stamped shield can: a single lightweight box with the rim, embossed boss,
+ * cross brace and corner screws baked into a 64px map. Replaces the former
+ * nine stacked meshes per can while keeping the shielded read. */
 function Shield({
   m,
   x,
@@ -165,39 +236,10 @@ function Shield({
   d: number
   h: number
 }) {
-  const top = h / 2
   return (
-    <group position={[x, y, 0.0004 + h / 2 + 0.0006]}>
-      <mesh material={m.shield}>
-        <boxGeometry args={[w, d, h]} />
-      </mesh>
-      {/* Raised rim frame */}
-      <mesh material={m.shield} position={[0, 0, top + 0.00012]}>
-        <boxGeometry args={[w + 0.0005, d + 0.0005, 0.00024]} />
-      </mesh>
-      {/* Embossed centre boss */}
-      <mesh material={m.shield} position={[0, 0, top + 0.00036]}>
-        <boxGeometry args={[w * 0.34, d * 0.34, 0.0001]} />
-      </mesh>
-      {/* Stamped cross brace */}
-      <mesh material={m.shield} position={[0, 0, top + 0.00032]}>
-        <boxGeometry args={[w * 0.8, 0.00018, 0.00008]} />
-      </mesh>
-      <mesh material={m.shield} position={[0, 0, top + 0.00032]}>
-        <boxGeometry args={[0.00018, d * 0.8, 0.00008]} />
-      </mesh>
-      {/* Corner screw bosses */}
-      {[
-        [-1, 1],
-        [1, 1],
-        [-1, -1],
-        [1, -1],
-      ].map(([sx, sy]) => (
-        <mesh key={`${sx}${sy}`} material={m.pcbTrim} position={[sx * (w / 2 - 0.0009), sy * (d / 2 - 0.0009), top + 0.00028]} rotation={AXIS_Z}>
-          <cylinderGeometry args={[0.00032, 0.00032, 0.00014, 12]} />
-        </mesh>
-      ))}
-    </group>
+    <mesh material={m.shield} position={[x, y, 0.001 + h / 2]}>
+      <boxGeometry args={[w, d, h]} />
+    </mesh>
   )
 }
 
@@ -206,14 +248,6 @@ function Shield({
  * additive focus ring that brightens on approach. Holds up in the flat-on
  * chip shot. */
 export function SoCPackage({ m }: { m: InternalsMaterials }) {
-  const BGA = 7
-  const half = (BGA - 1) / 2
-  const balls: [number, number][] = []
-  for (let i = -half; i <= half; i++) {
-    for (let j = -half; j <= half; j++) {
-      if (!(Math.abs(i) === half && Math.abs(j) === half)) balls.push([i, j])
-    }
-  }
   return (
     <group position={[0.003, 0.002, 0.001]}>
       <RoundedBox userData={{ part: 'die' }} args={[0.011, 0.011, 0.0011]} radius={0.0006} smoothness={2} position={[0, 0, 0]}>
@@ -225,12 +259,11 @@ export function SoCPackage({ m }: { m: InternalsMaterials }) {
         <primitive object={m.substrate} attach="material" />
       </RoundedBox>
 
-      {/* BGA ball grid under the substrate */}
-      {balls.map(([i, j]) => (
-        <mesh key={`${i}:${j}`} material={m.socPad} position={[i * 0.00145, j * 0.00145, -0.00068]}>
-          <sphereGeometry args={[0.00026, 10, 8]} />
-        </mesh>
-      ))}
+      {/* BGA ball grid under the substrate: one textured sheet (45 shaded
+          dots) instead of forty-five sphere meshes */}
+      <mesh material={m.bga} position={[0, 0, -0.00068]}>
+        <planeGeometry args={[0.0093, 0.0093]} />
+      </mesh>
 
       {/* Exposed die: bevel ledge under a raised mirror face */}
       <mesh material={m.socDie} position={[0, 0, 0.00078]} userData={{ part: 'die' }}>
@@ -247,29 +280,19 @@ export function SoCPackage({ m }: { m: InternalsMaterials }) {
       <mesh material={m.socPad} position={[0, 0, 0.00118]} userData={{ part: 'die' }}>
         <boxGeometry args={[0.00012, 0.0013, 0.00004]} />
       </mesh>
-      {[
-        [-0.0035, -0.0035],
-        [0.0035, -0.0035],
-        [-0.0035, 0.0035],
-        [0.0035, 0.0035],
-      ].map(([x, y]) => (
+      {SOC_FIDUCIALS.map(([x, y]) => (
         <mesh key={`${x}${y}`} material={m.socPad} position={[x, y, 0.00118]} userData={{ part: 'die' }}>
           <boxGeometry args={[0.00022, 0.00022, 0.00004]} />
         </mesh>
       ))}
 
       {/* Peripheral capsules */}
-      {[
-        [-0.0048, -0.0048],
-        [0.0048, -0.0044],
-        [-0.0042, 0.0048],
-        [0.005, 0.0042],
-      ].map(([x, y], i) => (
-        <mesh key={`${x}-${y}`} material={i % 2 ? m.socPad : m.shield} position={[x, y, 0.00045]}>
+      {SOC_CAPSULES.map((c) => (
+        <mesh key={`${c.x}-${c.y}`} material={m[c.mat]} position={[c.x, c.y, 0.00045]}>
           <boxGeometry args={[0.0016, 0.0016, 0.0007]} />
         </mesh>
       ))}
-      {[-0.0038, 0, 0.0038].map((x) => (
+      {SOC_ROW_X.map((x) => (
         <mesh key={x} material={m.socPad} position={[x, -0.0064, 0.0003]}>
           <boxGeometry args={[0.0018, 0.0012, 0.0007]} />
         </mesh>
@@ -402,12 +425,7 @@ export function Battery({ m }: { m: InternalsMaterials }) {
       </RoundedBox>
 
       {/* Foil seam ridges around the label face */}
-      {[
-        { p: [0.0159, 0] as const, a: [0.0005, 0.05] as const },
-        { p: [-0.0159, 0] as const, a: [0.0005, 0.05] as const },
-        { p: [0, 0.0248] as const, a: [0.032, 0.0005] as const },
-        { p: [0, -0.0248] as const, a: [0.032, 0.0005] as const },
-      ].map((s) => (
+      {BATTERY_SEAMS.map((s) => (
         <mesh key={`${s.p[0]}:${s.p[1]}`} material={m.batteryCell} position={[s.p[0], s.p[1], 0.00176]}>
           <boxGeometry args={[s.a[0], s.a[1], 0.00012]} />
         </mesh>
@@ -438,17 +456,12 @@ export function Battery({ m }: { m: InternalsMaterials }) {
  * OIS rings, recessed bores, three-optical-element stacks, aperture, glass
  * cover, sensors on gold carriers, plus the flex ribbon down to the board. */
 export function CameraModules({ m }: { m: InternalsMaterials }) {
-  const barrels: { x: number; y: number; r: number }[] = [
-    { x: -0.0065, y: 0.0065, r: 0.007 },
-    { x: 0.008, y: 0.0068, r: 0.0056 },
-    { x: 0.0005, y: -0.0072, r: 0.0056 },
-  ]
   return (
     <group>
       <RoundedBox userData={{ part: 'cameras' }} args={[0.034, 0.034, 0.0036]} radius={0.0014} smoothness={3} position={[0, 0, 0]}>
         <primitive object={m.housing} attach="material" />
       </RoundedBox>
-      {barrels.map((b, i) => (
+      {CAM_BARRELS.map((b, i) => (
         <group key={i} position={[b.x, b.y, 0]}>
           {/* Barrel housing */}
           <mesh material={m.housing}>
@@ -472,12 +485,7 @@ export function CameraModules({ m }: { m: InternalsMaterials }) {
           <mesh material={m.sensor} position={[0, 0, 0.00155]}>
             <circleGeometry args={[b.r - 0.0016, 28]} />
           </mesh>
-          {[
-            [0.0018, 0.0018],
-            [-0.0018, 0.0018],
-            [0.0018, -0.0018],
-            [-0.0018, -0.0018],
-          ].map(([px, py], k) => (
+          {CAM_PADS.map(([px, py], k) => (
             <mesh key={k} material={m.gold} position={[px, py, 0.00172]}>
               <boxGeometry args={[0.0005, 0.0005, 0.00012]} />
             </mesh>
@@ -545,10 +553,7 @@ export function SubBoard({ m }: { m: InternalsMaterials }) {
       <mesh material={m.pcbFace} position={[0, 0, 0.001]}>
         <boxGeometry args={[0.028, 0.014, 0.0003]} />
       </mesh>
-      {[
-        [-0.009, 0.0015],
-        [0.009, 0.002],
-      ].map(([x, y], i) => (
+      {SUB_CHIPS.map(([x, y], i) => (
         <mesh key={i} material={m.compon} position={[x, y, 0.0018]}>
           <boxGeometry args={[0.0026, 0.0026, 0.0007]} />
         </mesh>
@@ -571,7 +576,7 @@ export function SubBoard({ m }: { m: InternalsMaterials }) {
       <mesh material={m.housing} position={[0, -0.011, 0]}>
         <boxGeometry args={[0.0045, 0.0045, 0.0024]} />
       </mesh>
-      {[-0.00135, -0.00045, 0.00045, 0.00135].map((x) => (
+      {USB_PINS.map((x) => (
         <mesh key={x} material={m.gold} position={[x, -0.0122, 0.0007]}>
           <boxGeometry args={[0.0009, 0.0022, 0.0008]} />
         </mesh>
@@ -594,8 +599,6 @@ export function SubBoard({ m }: { m: InternalsMaterials }) {
 /** Structural aluminum rails + cross beams, ribs, fastener screw bosses and an
  * inner lip. */
 export function MidframeRails({ m }: { m: InternalsMaterials }) {
-  const ribs = [-0.042, -0.03, -0.018, -0.004, 0.004, 0.018, 0.032, 0.048]
-  const screws = [-0.052, -0.036, -0.02, -0.004, 0.012, 0.028, 0.044, 0.058]
   return (
     <group>
       <mesh material={m.midframe} position={[-0.037, 0, 0]}>
@@ -620,14 +623,14 @@ export function MidframeRails({ m }: { m: InternalsMaterials }) {
       </mesh>
 
       {/* Structural ribs across the spine */}
-      {ribs.map((y) => (
+      {MIDF_RIBS.map((y) => (
         <mesh key={y} material={m.midframe} position={[0, y, -0.00025]}>
           <boxGeometry args={[0.064, 0.0008, 0.0005]} />
         </mesh>
       ))}
 
       {/* Fastener screw bosses along both rails */}
-      {screws.map((y) =>
+      {MIDF_SCREWS.map((y) =>
         [-0.0378, 0.0378].map((x) => (
           <mesh key={`${x}:${y}`} material={m.pcbTrim} position={[x, y, 0]} rotation={AXIS_Z}>
             <cylinderGeometry args={[0.0005, 0.0005, 0.0005, 14]} />
@@ -640,15 +643,9 @@ export function MidframeRails({ m }: { m: InternalsMaterials }) {
 
 /** Meander antenna plates in the four corners. */
 export function AntennaPlates({ m }: { m: InternalsMaterials }) {
-  const corners: [number, number][] = [
-    [0.0315, 0.066],
-    [-0.0315, 0.066],
-    [0.0315, -0.066],
-    [-0.0315, -0.066],
-  ]
   return (
     <group>
-      {corners.map(([x, y], i) => (
+      {ANTENNA_CORNERS.map(([x, y], i) => (
         <RoundedBox key={i} args={[0.014, 0.006, 0.00028]} radius={0.0006} smoothness={2} position={[x, y, 0]}>
           <primitive object={m.antennaPlate} attach="material" />
         </RoundedBox>
@@ -664,7 +661,7 @@ export function FrontSensors({ m }: { m: InternalsMaterials }) {
       <mesh material={m.housing}>
         <boxGeometry args={[0.007, 0.0034, 0.0011]} />
       </mesh>
-      {[-0.0014, 0.0016].map((x, i) => (
+      {FRONT_SENSOR_X.map((x, i) => (
         <mesh key={i} material={m.sensor} position={[x, 0, 0.00062]}>
           <circleGeometry args={[0.0008, 18]} />
         </mesh>
@@ -674,8 +671,9 @@ export function FrontSensors({ m }: { m: InternalsMaterials }) {
 }
 
 /** Graphite heat-spreader foil laid between the display and the main board:
- * woven foil with copper seams and perimeter vias. Mount it just forward of
- * the board (see integrator note). */
+ * woven foil with copper seams and perimeter vias baked into the weave (the
+ * fourteen separate via circles are gone; the pattern tiles with the foil).
+ * Mount it just forward of the board (see integrator note). */
 export function ThermalSpreader({ m }: { m: InternalsMaterials }) {
   const W = 0.04
   const H = 0.054
@@ -691,14 +689,6 @@ export function ThermalSpreader({ m }: { m: InternalsMaterials }) {
       <mesh material={m.copper} position={[0, -H / 2 + 0.0004, 0.0002]}>
         <boxGeometry args={[W - 0.004, 0.0007, 0.00012]} />
       </mesh>
-      {/* Copper edge vias along the top / bottom rows */}
-      {[-H / 2 + 0.0032, H / 2 - 0.0032].map((y) =>
-        Array.from({ length: 7 }, (_, i) => -W / 2 + 0.004 + i * ((W - 0.008) / 6)).map((x) => (
-          <mesh key={`${y}:${x}`} material={m.gold} position={[x, y, 0.00016]}>
-            <circleGeometry args={[0.00028, 10]} />
-          </mesh>
-        )),
-      )}
     </group>
   )
 }
@@ -711,7 +701,7 @@ export function GhostShellOutline({ m }: { m: { ghost: THREE.MeshBasicMaterial }
   const h = 0.1596
   return (
     <group>
-      {[0.00392, -0.0039].map((z) => (
+      {GHOST_SHELL_Z.map((z) => (
         <group key={z} position={[0, 0, z]}>
           <mesh material={m.ghost} position={[0, h / 2 + 0.0005, 0]}>
             <boxGeometry args={[w + 0.0012, 0.0004, WIRE]} />

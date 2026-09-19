@@ -59,6 +59,10 @@ const SCRATCH: {
   lastShellGhost: number
   lastEnvInt: number
   lastFrameGhost: number
+  ordered: boolean
+  warmed: boolean
+  bgMesh: THREE.Mesh | null
+  lastBgMap: THREE.Texture | null
 } = {
   look: new THREE.Vector3(),
   screenTick: 0,
@@ -68,9 +72,76 @@ const SCRATCH: {
   lastShellGhost: -1,
   lastEnvInt: -1,
   lastFrameGhost: -1,
+  ordered: false,
+  warmed: false,
+  bgMesh: null,
+  lastBgMap: null,
 }
 
 const _ray = new THREE.Raycaster()
+
+/**
+ * One-time transparent pass ordering. materials.ts tags each shell material
+ * with a tier (1 rear, 2 internals, 3 frame, 4 front glass, 5 additive), but
+ * three.js sorts by Object3D.renderOrder, not material state, so that tag
+ * alone never orders the pass. This copies the tier onto the meshes once at
+ * mount: rear shell draws first, internals next, frame, then front glass and
+ * display, additive traces last. Far to near, no per-frame sort churn, no
+ * shader recompile. Background sphere pins to -10 so it always opens.
+ */
+function orderTransparentPass(
+  state: { scene: THREE.Scene },
+  shellRefs: {
+    frame: MutableRefObject<THREE.Group | null>
+    back: MutableRefObject<THREE.Group | null>
+    glass: MutableRefObject<THREE.Group | null>
+  },
+  internalsGroup: RefObject<THREE.Group | null>,
+): THREE.Mesh | null {
+  const setTier = (root: THREE.Object3D | null, tier: number) => {
+    if (!root) return
+    root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) o.renderOrder = tier
+    })
+  }
+  setTier(shellRefs.back.current, 1)
+  const ig = internalsGroup.current
+  if (ig) {
+    ig.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      let additive = false
+      for (const m of mats) {
+        if (m && (m as THREE.Material).blending === THREE.AdditiveBlending) {
+          additive = true
+          break
+        }
+      }
+      mesh.renderOrder = additive ? 5 : 2
+    })
+  }
+  setTier(shellRefs.frame.current, 3)
+  setTier(shellRefs.glass.current, 4)
+
+  // Background gradient sphere opens the pass so the phone never sorts
+  // against it mid-stack.
+  let bg: THREE.Mesh | null = null
+  state.scene.traverse((o) => {
+    if (bg || !(o as THREE.Mesh).isMesh) return
+    const mesh = o as THREE.Mesh
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    for (const m of mats) {
+      const mat = m as THREE.MeshBasicMaterial
+      if (mat && mat.side === THREE.BackSide) {
+        mesh.renderOrder = -10
+        bg = mesh
+        break
+      }
+    }
+  })
+  return bg
+}
 
 /**
  * The single frame director: samples the master timeline, then writes camera,
@@ -99,6 +170,44 @@ export function FilmDirector({
   }
 }) {
   useFrame((state, delta) => {
+    // One-time pass setup: deterministic renderOrder tiers plus a single
+    // shader prewarm once every group ref resolves. After this flag flips the
+    // frame loop stays allocation-free again.
+    if (!SCRATCH.ordered) {
+      if (
+        shellRefs.back.current &&
+        shellRefs.frame.current &&
+        shellRefs.glass.current &&
+        internalsGroup.current
+      ) {
+        SCRATCH.bgMesh = orderTransparentPass(state, shellRefs, internalsGroup)
+        if (SCRATCH.bgMesh) {
+          const mat = SCRATCH.bgMesh.material as THREE.MeshBasicMaterial
+          SCRATCH.lastBgMap = mat.map ?? null
+        }
+        SCRATCH.ordered = true
+        if (!SCRATCH.warmed) {
+          SCRATCH.warmed = true
+          try {
+            state.gl.compile(state.scene, state.camera)
+          } catch {
+            // Prewarm is best effort; the film runs unwarmed rather than loud.
+          }
+        }
+      }
+    } else if (SCRATCH.bgMesh) {
+      // Act-change texture disposal: StageLighting repaints its 1x128
+      // gradient onto a fresh CanvasTexture per palette step. The old map is
+      // already unbound here, so dispose it before adopting the new one.
+      // Rare path (a few times per full scroll), never per frame.
+      const mat = SCRATCH.bgMesh.material as THREE.MeshBasicMaterial
+      const cur = mat.map ?? null
+      if (cur !== SCRATCH.lastBgMap) {
+        if (SCRATCH.lastBgMap) SCRATCH.lastBgMap.dispose()
+        SCRATCH.lastBgMap = cur
+      }
+    }
+
     const p = progress.get()
     const t = sampleFilm(p)
     const s = computeFilmStates(p)
@@ -209,7 +318,9 @@ export function FilmDirector({
     // The bezel + edge hardware dials out harder during the macro dive (camera
     // inside the cavity, between the ring and the die) so the titanium ring can
     // never blend over nearer internals in the transparent pass. The rear shell
-    // + ghost line still carry the silhouette.
+    // + ghost line still carry the silhouette. At the 0.02 floor the group is
+    // fully culled: 23 transparent draws for zero pixels become zero draws,
+    // and the die keeps every pixel. Restored as soon as alpha lifts.
     if (ghost) {
       const frameAlpha = Math.max(
         0.02,
@@ -221,6 +332,11 @@ export function FilmDirector({
           FILM_MATERIALS[name].opacity = frameAlpha
         }
       }
+      if (shellRefs.frame.current) {
+        shellRefs.frame.current.visible = !(frameAlpha <= 0.05 && s.chipFocus > 0.4)
+      }
+    } else if (shellRefs.frame.current && !shellRefs.frame.current.visible) {
+      shellRefs.frame.current.visible = true
     }
 
     // Shell split: the front glass stack and rear ceramic part from the frame
@@ -280,9 +396,13 @@ export function FilmDirector({
     // along the optical axis only while the macro owns the frame. While the
     // internals own the frame (x-ray/rebuild) the shell module is culled so
     // its 38 meshes don't render a redundant pass over their internals twins.
+    // The chip dive culls it too: the macro camera sits inside the cavity on
+    // the die while the island sits far off-frame, so the seated module would
+    // shade 38 draws for zero pixels. Hero and camera macro keep it.
     if (opticsRef.current) {
       opticsRef.current.optics = s.optical
-      opticsRef.current.visible = !ghost
+      const chipOffFrame = s.chipFocus > 0.4 && s.cameraFocus < 0.01 && s.optical < 0.01
+      opticsRef.current.visible = !ghost && !chipOffFrame
     }
 
     // Hover inspection: only during the x-ray / rebuild pass. Fine pointers

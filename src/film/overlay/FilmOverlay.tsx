@@ -11,6 +11,7 @@ import {
   HierarchyStat,
   NoteLine,
   RevealWindow,
+  SpecList,
   TierSeries,
   TitleLine,
   Wordmark,
@@ -81,6 +82,25 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
         className="absolute inset-x-0 bottom-0 h-44"
         style={{ background: 'linear-gradient(0deg, rgba(5,7,13,0.7), rgba(5,7,13,0))' }}
       />
+
+      {/* Flank legibility veil, camera act on desktop */}
+      <AnimatePresence>
+        {act.id === 'camera' ? (
+          <motion.div
+            key="flank-veil"
+            aria-hidden="true"
+            initial={reduce ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reduce ? undefined : { opacity: 0 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            className="absolute inset-y-0 left-0 hidden w-[46%] lg:block"
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(5,7,13,0.82), rgba(5,7,13,0.4) 62%, rgba(5,7,13,0))',
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
 
       {/* Chapter caption */}
       <div className="absolute inset-0">
@@ -180,10 +200,12 @@ export function FilmOverlay({ progress }: { progress: MotionValue<number> }) {
             transition={{ duration: 0.4, ease: 'easeOut' }}
             className="absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] hidden justify-center lg:flex"
           >
-            <div className="flex items-center gap-2.5 rounded-sm border border-white/10 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.3em] text-white/50 backdrop-blur-sm">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300/80" />
-              <span>HOVER TO INSPECT</span>
-            </div>
+            <RevealWindow local={local} from={0.62} to={0.72}>
+              <div className="flex items-center gap-2.5 rounded-sm border border-white/10 bg-black/40 px-3 py-2 font-mono text-[9px] tracking-[0.3em] text-white/50 backdrop-blur-sm">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300/80" />
+                <span>HOVER TO INSPECT</span>
+              </div>
+            </RevealWindow>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -332,6 +354,15 @@ function CoreCaption({
       return (
         <div className="flex flex-col items-start">
           <TitleLine local={local} from={r.title ?? 0.1} title={copy.title} />
+          {copy.rows?.length ? (
+            <SpecList
+              local={local}
+              from={r.rows ?? 0.4}
+              rows={copy.rows}
+              variant="notes"
+              className="lg:hidden"
+            />
+          ) : null}
           {copy.note ? <NoteLine local={local} from={r.note ?? 0.6} note={copy.note} className="mt-4" /> : null}
         </div>
       )

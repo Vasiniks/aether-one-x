@@ -173,11 +173,13 @@ export function centerBias(aspect: number, axis: 'x' | 'y'): number {
  * Regions are side-by-side in progress, so at most one fires per sample.
  */
 const MACRO_REGIONS: ReadonlyArray<{ start: number; end: number; half: number }> = [
-  // Chip macro: the A1 Ultra package (0.011) plus a little board context.
-  { start: 0.39, end: 0.47, half: 0.009 },
-  // Camera macro: the island (0.036) plus the optical spread during the
-  // explode, so no element ever leaves the frame.
-  { start: 0.62, end: 0.72, half: 0.026 },
+  // Chip macro: the A1 Ultra package half-width at macro scale (~0.021)
+  // contained with a small margin on portrait phones. Desktop keeps the
+  // tight authored macro; only aspect < 0.8 ever sees this floor.
+  { start: 0.39, end: 0.47, half: 0.0125 },
+  // Camera macro: the island half-width at macro scale (~0.036) so no
+  // element ever leaves the frame on portrait phones.
+  { start: 0.62, end: 0.72, half: 0.036 },
   // Battery climax: the cell reads edge-on, protect its half width too.
   { start: 0.895, end: 0.925, half: 0.017 },
 ]

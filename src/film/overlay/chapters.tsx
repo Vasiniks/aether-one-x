@@ -106,7 +106,13 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
     layout: 'chiplead',
     title: 'A1 Ultra.',
     note: `${TOPS} trillion ops at near no wattage.`,
-    reveal: { title: 0.1, note: 0.6 },
+    rows: [
+      { k: 'PROCESS', v: `${CHIPSET.processNm} NM` },
+      { k: 'CPU', v: `${CHIPSET.cpuCores} CORES` },
+      { k: 'GPU', v: `${CHIPSET.gpuCores} CORES` },
+      { k: 'NPU', v: `${CHIPSET.npuTops} TOPS` },
+    ],
+    reveal: { title: 0.1, rows: 0.4, note: 0.6 },
   },
   rebuild: {
     label: 'ASSEMBLY',
@@ -122,12 +128,15 @@ export const CHAPTERS: Record<ActId, ChapterCopy> = {
     num: String(CAM_MAIN.mp),
     numUnit: 'MP MAIN',
     rows: [
+      { k: 'SENSOR', v: CAM_MAIN.sensor },
+      { k: 'APERTURE', v: CAM_MAIN.aperture },
+      { k: 'STABILISATION', v: CAM_MAIN.stabilization },
       { k: 'ULTRA-WIDE', v: CAM_ULTRA.spec },
       { k: 'TELEPHOTO', v: CAM_TELE.spec },
       { k: 'FRONT', v: CAM_FRONT.spec },
     ],
     note: 'Three sensors, one island.',
-    reveal: { title: 0.08, rule: 0.2, num: 0.24, unit: 0.34, rows: 0.5, note: 0.68 },
+    reveal: { title: 0.08, rule: 0.2, num: 0.24, unit: 0.34, rows: 0.5, note: 0.72 },
   },
   display: {
     label: 'DISPLAY',

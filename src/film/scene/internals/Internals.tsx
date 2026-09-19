@@ -31,7 +31,7 @@ export interface InternalsControl {
   energy: number
   /** 0..1 the A1 Ultra quarry lifts out of the board plane (macro). */
   chipLift: number
-  /** 0..1 the battery cell pulls toward the camera at the energy climax. */
+  /** 0..1 the battery cell recesses into the phone depth at the energy climax. */
   battLift: number
   /** 0..1 the rest of the internals step back while a subject owns the frame. */
   subjectDim: number
@@ -165,7 +165,7 @@ export function Internals({
     place(antG, ANT, 0, 5)
     place(midG, MID, 0, 6)
 
-    // Battery hero: battLift pulls the cell + label up so it owns the frame.
+    // Battery hero: battLift braces the cell + label back so it owns the frame.
     // Coil stays with the x-ray explode.
     const eBatt = Math.min(1, batt + e)
     const placeBatt = (
@@ -184,10 +184,10 @@ export function Internals({
     placeBatt(coilG, COIL, 1)
     placeBatt(battG, BATT, 2)
 
-    // BattLift override: the cell rises out of the chassis and tips its label
-    // face toward the camera so the energy climax reads as one isolated cell.
+    // BattLift override: the cell recesses into the chassis depth and tips its
+    // label face forward so the energy climax reads as one isolated cell.
     if (battG.current && c.battLift > 0.01) {
-      battG.current.position.z = -0.0016 + 0.0075 * c.battLift
+      battG.current.position.z = -0.0016 - 0.0052 * c.battLift
       battG.current.rotation.z = 0.02 * c.battLift
       battG.current.rotation.x = c.battLift * 0.06
     } else if (battG.current) {
@@ -195,11 +195,11 @@ export function Internals({
       battG.current.rotation.z = 0
     }
 
-    // ChipLift: the board (and die sitting on it) pushes toward the camera
-    // along its surface normal so the packaging lifts out of the plane, and
-    // tips gently onto its face for the flat-on beat.
+    // ChipLift: the board (and die sitting on it) recedes into the phone
+    // depth along its surface normal while tipping gently onto its face for
+    // the flat-on beat.
     if (boardG.current) {
-      boardG.current.position.z += c.chipLift * 0.0022
+      boardG.current.position.z -= c.chipLift * 0.0022
       boardG.current.position.y += c.chipLift * 0.0006
       boardG.current.rotation.x = c.chipLift * 0.045
     }

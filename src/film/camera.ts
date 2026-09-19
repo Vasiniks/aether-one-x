@@ -170,7 +170,7 @@ const STATES: FilmStates = {
 export function computeFilmStates(p: number): FilmStates {
   const cameraFocus = ramplike(p, 0.635, 0.665, 0.705, 0.73)
   const chipLift = ramplike(p, 0.34, 0.37, 0.455, 0.485)
-  const battLift = ramplike(p, 0.893, 0.902, 0.918, 0.926)
+  const battLift = ramplike(p, 0.893, 0.91, 0.92, 0.928)
   // The optical elements part from the module only after the camera has
   // settled on the island, and reseat before the display act pulls away.
   const optical = ramplike(p, 0.645, 0.675, 0.715, 0.74)

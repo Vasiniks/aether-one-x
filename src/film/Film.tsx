@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useScroll, useTransform } from 'motion/react'
 import WebGL from 'three/examples/jsm/capabilities/WebGL.js'
 import { PhoneFrame } from '../components/Phone/PhoneFrame'
@@ -44,9 +44,12 @@ export function Film() {
   // onto the nearest authored beat while fast scrolls pass straight through.
   const session = useRef(createGuideSession())
   const t0 = useRef(performance.now())
-  const guided = useTransform(scrollYProgress, (v) =>
-    smoothGuide(v, session.current, Number.isNaN(session.current.lastP) ? t0.current : performance.now()),
+  const smooth = useCallback(
+    (v: number) =>
+      smoothGuide(v, session.current, Number.isNaN(session.current.lastP) ? t0.current : performance.now()),
+    [],
   )
+  const guided = useTransform(scrollYProgress, smooth)
 
   // Continuous visibility gate. The shared hook fires once by design, so the
   // per-frame pause needs its own observer. It watches the sticky stage, not

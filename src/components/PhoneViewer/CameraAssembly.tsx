@@ -1,38 +1,44 @@
-import { RoundedBox } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type MutableRefObject, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { FocusLensId } from './PhoneConfig'
 import { FINISH_PARAMS, createPhoneMaterials, type PhoneMaterialSet } from './PhoneMaterials'
 
-/** Rear camera island geometry, mirrored 1:1 from PhoneModel so the optics
- *  seat exactly inside the three external openings on the raised plate. */
+/** Rear camera island center, mirrored 1:1 from PhoneModel so the three
+ *  housings seat inside the raised ceramic plate that PhoneModel also renders. */
 const ISLAND = { x: -0.0208, y: 0.05 }
 const ISLAND_FACE_Z = -0.0028
-const LENS_Z = -0.0046
+/** World z of each lens bore mouth. LENS_Z plus the collar offset lands the
+ *  mouth ring 0.0001 proud of the pad face (world z -0.00404) while the glass
+ *  sits 0.0003 inboard, so the glass reads as bored into the ceramic and the
+ *  ring reads as seated, never floating. */
+const LENS_Z = -0.0045
 
-/** Ceramic-clad module body seated flush on the island plate. Its rear face
- *  (world z -0.00415) reads ~0.00015 proud of the plate's outboard face
- *  (-0.0043) - integrated and seated, never buried in the chassis.
- *  World z span: -0.00415 -> -0.00125. */
-const HOUSING = { w: 0.0328, h: 0.0306, z: 0.0001, depth: 0.0029 }
-/** Machined flange lip on the housing's forward face. */
-const FLANGE = { w: 0.0343, h: 0.0321, z: 0.00135, depth: 0.0002 }
-/** Machined titanium trim band framing the seam where the module meets the
- *  island plate: a lip ~0.0003 deep, standing proud of the ceramic rear face
- *  and the plate. World z span: -0.00445 -> -0.00415. */
-const TRIM = { w: 0.0344, h: 0.0322, r: 0.0028, band: 0.0008, depth: 0.0003 }
-const TRIM_Z = -0.0015
-/** Counterbored wells where the barrels seat into the housing rear. */
-const WELL_Z = -0.00132
-/** Fastener heads on the housing rear, revealed when the plate is removed. */
-const SCREW_Z = -0.0013
-const SCREWS: [number, number][] = [
-  [0.0138, 0.0118],
-  [-0.0138, 0.0118],
-  [0.0138, -0.0118],
-  [-0.0138, -0.0118],
-]
+/** Shared bore proportions, applied per lens radius so the three lenses read
+ *  as one machined family instead of three unrelated parts. The housing body
+ *  multiplier 1.34 keeps the widest bore (x -0.0065 with r 0.0076: max reach
+ *  0.0065 + 0.01018 = 0.01668) inside the island plate edge (half size 0.0171,
+ *  plate edge at world x -0.0379, frame inner edge at -0.0384). */
+const BORE = {
+  /** ceramic bushing outer radius, as a multiple of the lens radius */
+  body: 1.34,
+  /** radius the bushing is bored out to along the lens axis */
+  inner: 1.06,
+  /** machined titanium mouth ring, centered on this radius */
+  collar: 0.93,
+  /** signature counterstep ring outside the mouth ring */
+  step: 1.0,
+  /** recessed lens disc radius */
+  glass: 0.78,
+  /** titanium seat lip the glass rests on */
+  seat: 0.76,
+  /** dark inner barrel wall radius */
+  wall: 0.7,
+  /** reflective aperture outer radius */
+  aperture: 0.62,
+  /** aperture and throat inner radius */
+  throat: 0.48,
+}
 
 interface LensSpec {
   key: FocusLensId
@@ -60,9 +66,10 @@ export interface CameraAssemblyProps {
   lensRefs?: MutableRefObject<Partial<Record<FocusLensId, THREE.Group>>>
   /**
    * Per-frame optical-drive control. When provided the assembly spreads the
-   * lens elements (ring -> glass -> barrel -> throat -> sensor) outward along
-   * the optical axis, perpendicular to the rear surface - the film's camera
-   * macro. Undefined on product pages, where the optics stay seated.
+   * lens elements (ring -> glass -> barrel -> throat -> sensor) receding into
+   * the bore along the optical axis, perpendicular to the rear surface - the
+   * film's camera macro. Undefined on product pages, where the optics stay
+   * seated.
    */
   control?: RefObject<OpticsControl | null>
 }
@@ -76,11 +83,13 @@ export interface OpticsControl {
   visible?: boolean
 }
 
-/** Per-element outward travel (local -z) at full `optics`, ordered so the
- *  collar/ring lead and the deep sensor rides out last and furthest - the
- *  physical read of elements being drawn from the barrel one by one. */
+/** Per-element travel deeper into the bore (local +z, into the phone) at full
+ *  `optics`, ordered so the collar stays at the mouth and the sensor recedes
+ *  furthest - the physical read of the stack parting down the barrel, away
+ *  from the film camera and into the body. */
 const OPTIC_LIFT: Readonly<Record<string, number>> = {
   collar: 0.0012,
+  step: 0.0012,
   bezel: 0.0022,
   rim: 0.003,
   glass: 0.0045,
@@ -95,9 +104,9 @@ const OPTIC_SENSOR_GLOW = 1.2
 /** Focus-ring flash that traces the moving glass (film material set only). */
 const OPTIC_RING_TRACE = 0.5
 
-/** A teardown-honest rear camera module: a ceramic-clad housing seated flush
- *  on the island plate with a machined titanium trim seam, three recessed lens
- *  barrels, and an internal aperture + sensor. */
+/** A teardown-honest rear camera cluster: three ceramic-bored housings seated
+ *  flush in the island plate, each ringed by a machined titanium mouth with a
+ *  counterstep, a recessed glass seat and a deep aperture + sensor stack. */
 export function CameraAssembly({ materials, geometry, lensRefs, control }: CameraAssemblyProps) {
   const owned = useMemo(() => (materials ? null : createPhoneMaterials(FINISH_PARAMS.obsidian)), [materials])
   const set = materials ?? owned!
@@ -120,7 +129,7 @@ export function CameraAssembly({ materials, geometry, lensRefs, control }: Camer
     for (const [key, mesh] of registry.current) {
       const lift = (mesh.userData.lift as number) ?? 0
       const base = (mesh.userData.baseZ as number) ?? 0
-      mesh.position.z = base - g * lift
+      mesh.position.z = base + g * lift
       if (key.endsWith(':sensor') && set.sensorGlint) {
         set.sensorGlint.emissiveIntensity = 1.4 + g * OPTIC_SENSOR_GLOW
       }
@@ -147,8 +156,6 @@ export function CameraAssembly({ materials, geometry, lensRefs, control }: Camer
         </mesh>
       )}
 
-      <CameraHousing materials={set} />
-
       {LENSES.map((lens) => (
         <group
           key={lens.key}
@@ -164,59 +171,25 @@ export function CameraAssembly({ materials, geometry, lensRefs, control }: Camer
   )
 }
 
-/** The machined module body: ceramic-clad housing, titanium trim seam, flange
- *  lip, barrel wells and fasteners. */
-function CameraHousing({ materials }: { materials: PhoneMaterialSet }) {
-  const trimGeometry = useMemo(
-    () => createTrimRingGeometry(TRIM.w, TRIM.h, TRIM.band, TRIM.depth, TRIM.r),
-    [],
+/** One ceramic housing bushing: a short washer bored out along the lens axis,
+ *  dropped into the plate so its outboard face lands flush on the pad face
+ *  (world z -0.00404) and reads as the seat the metal mouth ring is set into.
+ *  Depth stays shallow so the washer never reaches the cell or front glass. */
+function HousingBushing({ r, materials }: { r: number; materials: PhoneMaterialSet }) {
+  const geometry = useMemo(
+    () => createBushingGeometry(r * BORE.body, r * BORE.inner, 0.0015),
+    [r],
   )
   return (
-    <group>
-      {/* Outer shell in the island ceramic family so the plate and the module
-          read as one ceramic mass with the machined lens rings on its face. */}
-      <RoundedBox
-        args={[HOUSING.w, HOUSING.h, HOUSING.depth]}
-        radius={0.0022}
-        smoothness={5}
-        position={[0, 0, HOUSING.z]}
-      >
-        <primitive object={materials.island} attach="material" />
-      </RoundedBox>
-
-      {/* Machined titanium lip at the module/plate seam - intentional joint. */}
-      <mesh geometry={trimGeometry} position={[0, 0, TRIM_Z]}>
-        <primitive object={materials.frame} attach="material" />
-      </mesh>
-
-      <RoundedBox
-        args={[FLANGE.w, FLANGE.h, FLANGE.depth]}
-        radius={0.0026}
-        smoothness={5}
-        position={[0, 0, FLANGE.z]}
-      >
-        <primitive object={materials.lensRing} attach="material" />
-      </RoundedBox>
-
-      {LENSES.map((lens) => (
-        <mesh key={lens.key} position={[lens.x, lens.y, WELL_Z]}>
-          <torusGeometry args={[lens.radius * 1.05, 0.0003, 12, 56]} />
-          <primitive object={materials.lensCavity} attach="material" />
-        </mesh>
-      ))}
-
-      {SCREWS.map(([sx, sy]) => (
-        <mesh key={`${sx}-${sy}`} position={[sx, sy, SCREW_Z]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.00052, 0.00052, 0.0003, 16]} />
-          <primitive object={materials.lensRing} attach="material" />
-        </mesh>
-      ))}
-    </group>
+    <mesh geometry={geometry} position={[0, 0, 0.00053]}>
+      <primitive object={materials.island} attach="material" />
+    </mesh>
   )
 }
 
-/** One optic: recessed well, stepped outer ring, glass, reflective aperture
- *  and a faint deep sensor glow. Shares the lens axis (+z = into the body). */
+/** One optic: ceramic bushing, machined titanium mouth ring with counterstep,
+ *  recessed lens seat, glass, aperture and a faint deep sensor glow. Shares
+ *  the lens axis (+z = into the body). */
 function LensBarrel({
   id,
   r,
@@ -228,97 +201,88 @@ function LensBarrel({
   materials: PhoneMaterialSet
   register: (id: string, name: string) => (node: THREE.Mesh | null) => void
 }) {
-  // Tele gets a deeper throat so its sensor reads as deeper behind the glass.
-  const deep = id === 'tele' ? 0.00012 : 0
+  // Tele gets a deeper throat so its sensor reads as set deepest in the bore.
+  const deep = id === 'tele' ? 0.0002 : 0
   const glintR = id === 'main' ? r * 0.16 : r * 0.11
+  // Stack order in local z (larger is deeper into the bore): collar at the
+  // mouth, then counterstep, seat lip, rim, recessed glass, barrel wall,
+  // aperture, throat, sensor deepest. Neighbors hold 0.00008 to 0.0002 gaps
+  // so no coplanar pair can z-fight at macro distance.
   return (
     <>
-      {/* Machined outer collar (the external ring on the plate face) */}
-      <mesh ref={register(id, 'collar')}>
-        <torusGeometry args={[r, 0.0007, 16, 72]} />
+      <HousingBushing r={r} materials={materials} />
+      {/* Machined titanium mouth ring, 0.0001 proud of the ceramic seat */}
+      <mesh ref={register(id, 'collar')} position={[0, 0, 0.00036]}>
+        <torusGeometry args={[r * BORE.collar, 0.00038, 16, 80]} />
         <primitive object={materials.lensRing} attach="material" />
       </mesh>
-      {/* Stepped bezel */}
-      <mesh ref={register(id, 'bezel')} position={[0, 0, -0.00022]}>
-        <torusGeometry args={[r * 0.88, 0.0003, 12, 64]} />
+      {/* Signature counterstep machined into the ring outer edge */}
+      <mesh ref={register(id, 'step')} position={[0, 0, 0.00044]}>
+        <torusGeometry args={[r * BORE.step, 0.0001, 12, 80]} />
+        <primitive object={materials.lensRing} attach="material" />
+      </mesh>
+      {/* Titanium seat lip the glass rests on */}
+      <mesh ref={register(id, 'bezel')} position={[0, 0, 0.00056]}>
+        <torusGeometry args={[r * BORE.seat, 0.00012, 12, 64]} />
         <primitive object={materials.lensRing} attach="material" />
       </mesh>
       {/* Iridescent rim light just inside the glass edge */}
-      <mesh ref={register(id, 'rim')} position={[0, 0, -0.00042]} rotation={[0, Math.PI, 0]}>
-        <ringGeometry args={[r * 0.82, r * 0.87, 64]} />
+      <mesh ref={register(id, 'rim')} position={[0, 0, 0.00068]} rotation={[0, Math.PI, 0]}>
+        <ringGeometry args={[r * BORE.glass, r * BORE.collar + 0.00012, 64]} />
         <primitive object={materials.lensGlass} attach="material" />
       </mesh>
-      {/* Lens glass, seated inside the collar */}
-      <mesh ref={register(id, 'glass')} position={[0, 0, -0.00045]} rotation={[0, Math.PI, 0]}>
-        <circleGeometry args={[r * 0.8, 72]} />
+      {/* Lens glass, recessed below the mouth ring */}
+      <mesh ref={register(id, 'glass')} position={[0, 0, 0.00078]} rotation={[0, Math.PI, 0]}>
+        <circleGeometry args={[r * BORE.glass, 72]} />
         <primitive object={materials.lensGlass} attach="material" />
       </mesh>
-      {/* Inner barrel wall seen through the glass edge */}
-      <mesh ref={register(id, 'barrel')} position={[0, 0, 0.0001]}>
-        <torusGeometry args={[r * 0.68, 0.00028, 12, 64]} />
+      {/* Dark inner barrel wall seen through the glass edge */}
+      <mesh ref={register(id, 'barrel')} position={[0, 0, 0.00095]}>
+        <torusGeometry args={[r * BORE.wall, 0.00022, 12, 64]} />
         <primitive object={materials.lensBarrel} attach="material" />
       </mesh>
       {/* Reflective aperture ring below the glass */}
-      <mesh ref={register(id, 'aperture')} position={[0, 0, 0.00013]} rotation={[0, Math.PI, 0]}>
-        <ringGeometry args={[r * 0.54, r * 0.68, 64]} />
+      <mesh ref={register(id, 'aperture')} position={[0, 0, 0.00115]} rotation={[0, Math.PI, 0]}>
+        <ringGeometry args={[r * BORE.throat, r * BORE.aperture, 64]} />
         <primitive object={materials.lensRing} attach="material" />
       </mesh>
       {/* Dark throat under the aperture */}
-      <mesh ref={register(id, 'throat')} position={[0, 0, 0.0002 + deep]} rotation={[0, Math.PI, 0]}>
-        <circleGeometry args={[r * 0.54, 64]} />
+      <mesh ref={register(id, 'throat')} position={[0, 0, 0.00135]} rotation={[0, Math.PI, 0]}>
+        <circleGeometry args={[r * BORE.throat, 64]} />
         <primitive object={materials.lensCavity} attach="material" />
       </mesh>
-      {/* Faint internal sensor reflection, deepest element */}
-      <mesh ref={register(id, 'sensor')} position={[0, 0, 0.0003 + deep]} rotation={[0, Math.PI, 0]}>
+      {/* Faint internal sensor reflection, deepest element in the bore,
+          tele seated lower than the wide lenses */}
+      <mesh ref={register(id, 'sensor')} position={[0, 0, 0.0016 + deep]} rotation={[0, Math.PI, 0]}>
         <circleGeometry args={[glintR, 48]} />
         <primitive object={materials.sensorGlint} attach="material" />
       </mesh>
       {/* Focus highlight ring (driven by the shared phone rig) */}
-      <mesh name="focus-ring" position={[0, 0, -0.00038]}>
-        <torusGeometry args={[r * 0.94, 0.00012, 12, 72]} />
+      <mesh name="focus-ring" position={[0, 0, 0.00038]}>
+        <torusGeometry args={[r * 0.83, 0.00008, 12, 80]} />
         <primitive object={materials.focusRing} attach="material" />
       </mesh>
     </>
   )
 }
 
-/** Rounded-rectangle outline ring used for the titanium trim seam: outer
- *  footprint sized to the module, inner hole sized to its rear face, extruded
- *  `depth` deep so it reads as a proud machined lip. */
-function createTrimRingGeometry(
-  w: number,
-  h: number,
-  band: number,
-  depth: number,
-  radius: number,
-): THREE.BufferGeometry {
+/** Extruded circular washer (annulus) used for each ceramic housing bushing:
+ *  the bore wall the optics recede down, keeping the barrel cavity believable
+ *  without a solid slab behind the plate. */
+function createBushingGeometry(rOuter: number, rInner: number, depth: number): THREE.BufferGeometry {
   const shape = new THREE.Shape()
-  roundedRectPath(shape, w, h, radius)
+  shape.absarc(0, 0, rOuter, 0, Math.PI * 2, false)
   const hole = new THREE.Path()
-  roundedRectPath(hole, w - band * 2, h - band * 2, Math.max(0.0001, radius - band))
+  hole.absarc(0, 0, rInner, 0, Math.PI * 2, true)
   shape.holes.push(hole)
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth,
-    bevelEnabled: false,
-    curveSegments: 24,
+    bevelEnabled: true,
+    bevelSize: 0.00007,
+    bevelThickness: 0.00007,
+    bevelSegments: 2,
+    curveSegments: 40,
     steps: 1,
   })
-  geometry.translate(0, 0, -depth / 2)
   return geometry
-}
-
-/** Traces a centered rounded-rectangle outline with the given corner radius. */
-function roundedRectPath(path: THREE.Shape | THREE.Path, w: number, h: number, r: number) {
-  const rx = w / 2
-  const ry = h / 2
-  const c = Math.min(r, rx, ry)
-  path.moveTo(-rx + c, -ry)
-  path.lineTo(rx - c, -ry)
-  path.quadraticCurveTo(rx, -ry, rx, -ry + c)
-  path.lineTo(rx, ry - c)
-  path.quadraticCurveTo(rx, ry, rx - c, ry)
-  path.lineTo(-rx + c, ry)
-  path.quadraticCurveTo(-rx, ry, -rx, ry - c)
-  path.lineTo(-rx, -ry + c)
-  path.quadraticCurveTo(-rx, -ry, -rx + c, -ry)
 }

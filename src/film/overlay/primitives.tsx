@@ -526,12 +526,10 @@ export function XRayRead({ x, y, z }: { x: string; y: string; z: string }) {
         <span className="flex items-baseline gap-2">
           <span className="text-faint">X</span>
           <span className="text-ink tabular-nums">{x}</span>
-          <span className="text-white/40" aria-hidden="true">·</span>
         </span>
         <span className="flex items-baseline gap-2">
           <span className="text-faint">Y</span>
           <span className="text-ink tabular-nums">{y}</span>
-          <span className="text-white/40" aria-hidden="true">·</span>
         </span>
         <span className="flex items-baseline gap-2">
           <span className="text-faint">Z</span>
