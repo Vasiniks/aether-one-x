@@ -12,8 +12,7 @@
  * Ultrawides are special: the phone reads small and centered with dead space
  * on both sides when framed like a 16:9 monitor. Here the phone is composed
  * larger (see `formatFit`) and (optionally) offset into the horizontal room
- * (see `frameOffset`) so the open space becomes the caption zone instead of
- * a sea of black.
+ * so the open space becomes the caption zone instead of a sea of black.
  */
 
 /** Physical bounds of the Aether One X body (meters). */
@@ -146,8 +145,7 @@ export function fitFov(options: FitOptions): number {
  * captions/secondary content never collide with vertical chrome. On ultrawides
  * (aspect > 1.9) the wide frame has horizontal room to spare, so an off-center
  * composition toward the open space is never clamped away - it is gently
- * *emphasized* instead (fitFov's width guard still caps any shift). This goes
- * with `frameOffset`, which picks the default side and scale of that shift.
+ * *emphasized* instead (fitFov's width guard still caps any shift).
  */
 export function centerBias(aspect: number, axis: 'x' | 'y'): number {
   const limit = axis === 'x' ? 1.5 : 1.1
@@ -157,50 +155,6 @@ export function centerBias(aspect: number, axis: 'x' | 'y'): number {
     return base + (1.25 - base) * t
   }
   return base
-}
-
-/**
- * Where the phone sits horizontally - a world-space x-offset hint at the
- * phone's depth, in meters, compatible with `fitFov`'s `px` (positive = right,
- * negative = left).
- *
- * Ultrawides have horizontal room the composition should *use* instead of
- * dead-centering: this returns a deliberate offset so the caption/anchored
- * text lands in the open space. Narrow screens return 0 so the phone stays
- * centered and captions/secondary content never collide.
- *
- * Pass `authoredPx` to reuse an authored offset: it is shifted further into
- * the open space on ultrawides (scaled up within the band budget) and hard
- * clamped on narrow screens.
- *
- * Offsets stay inside the frame-safe budget for every viewport; `centerBias`
- * can further clamp if a composition also needs to survive a resized window.
- *
- * @param aspect     Viewport width / height.
- * @param authoredPx Optional author world-space offset (meters).
- */
-export function frameOffset(aspect: number, authoredPx?: number): number {
-  // Budget per band, in meters at the phone's depth.
-  if (aspect >= 2.6) {
-    const budget = 0.1
-    return authoredPx === undefined ? 0.085 : Math.max(-budget, Math.min(budget, authoredPx * 1.2))
-  }
-  if (aspect >= 1.9) {
-    const budget = 0.08
-    if (authoredPx === undefined) {
-      // Ramp the default shift from 0 at 1.9 to 0.07 at ~3.0.
-      return 0.07 * Math.min(1, (aspect - 1.9) / (3.0 - 1.9))
-    }
-    return Math.max(-budget, Math.min(budget, authoredPx * 1.2))
-  }
-  if (aspect >= 1.2) {
-    // Standard desktop / tablet landscape: subtle nudge only.
-    const budget = 0.012
-    if (authoredPx === undefined) return 0
-    return Math.max(-budget, Math.min(budget, authoredPx))
-  }
-  // Narrow phones: keep it centered - no collision room.
-  return 0
 }
 
 // perf: cheap - pure arithmetic, no allocations.

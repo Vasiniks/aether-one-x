@@ -23,7 +23,7 @@ export function MainBoardAndSoC({ m }: { m: InternalsMaterials }) {
       </RoundedBox>
 
       {/* Trace face */}
-      <mesh name="xray:board" position={[0, 0, 0.001]}>
+      <mesh userData={{ part: 'main' }} position={[0, 0, 0.001]}>
         <boxGeometry args={[0.043, 0.056, 0.0003]} />
         <primitive object={m.pcbFace} attach="material" />
       </mesh>
@@ -216,7 +216,7 @@ export function SoCPackage({ m }: { m: InternalsMaterials }) {
   }
   return (
     <group position={[0.003, 0.002, 0.001]}>
-      <RoundedBox name="xray:soc" args={[0.011, 0.011, 0.0011]} radius={0.0006} smoothness={2} position={[0, 0, 0]}>
+      <RoundedBox userData={{ part: 'die' }} args={[0.011, 0.011, 0.0011]} radius={0.0006} smoothness={2} position={[0, 0, 0]}>
         <primitive object={m.substrate} attach="material" />
       </RoundedBox>
 
@@ -392,7 +392,7 @@ function Components({ m }: { m: InternalsMaterials }) {
 export function Battery({ m }: { m: InternalsMaterials }) {
   return (
     <group>
-      <RoundedBox name="xray:battery" args={[0.032, 0.05, 0.0034]} radius={0.0009} smoothness={3} position={[0, 0, 0]}>
+      <RoundedBox userData={{ part: 'battery' }} args={[0.032, 0.05, 0.0034]} radius={0.0009} smoothness={3} position={[0, 0, 0]}>
         <primitive object={m.batteryBody} attach="material" />
       </RoundedBox>
 
@@ -445,7 +445,7 @@ export function CameraModules({ m }: { m: InternalsMaterials }) {
   ]
   return (
     <group>
-      <RoundedBox name="xray:camera" args={[0.034, 0.034, 0.0036]} radius={0.0014} smoothness={3} position={[0, 0, 0]}>
+      <RoundedBox userData={{ part: 'cameras' }} args={[0.034, 0.034, 0.0036]} radius={0.0014} smoothness={3} position={[0, 0, 0]}>
         <primitive object={m.housing} attach="material" />
       </RoundedBox>
       {barrels.map((b, i) => (

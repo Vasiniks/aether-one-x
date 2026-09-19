@@ -12,7 +12,6 @@ export const SCREEN_H = 340
 
 export type ScreenMode =
   | 'off'
-  | 'wake'
   | 'idle'
   | 'display'
   | 'os'
@@ -24,7 +23,6 @@ const ctx = canvas.getContext('2d')!
 
 function wallpaper(time: number, brightness: number) {
   const g = ctx.createLinearGradient(0, 0, 0, SCREEN_H)
-  const shift = (Math.sin(time * 0.4) + 1) / 2
   g.addColorStop(0, `rgba(9,16,28,${0.92 + brightness * 0.08})`)
   g.addColorStop(0.5, `rgba(16,30,52,${0.86 + brightness * 0.14})`)
   g.addColorStop(1, `rgba(8,14,26,${0.94})`)
@@ -44,7 +42,6 @@ function wallpaper(time: number, brightness: number) {
   glow.addColorStop(1, 'rgba(160,200,255,0)')
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, SCREEN_W, SCREEN_H)
-  void shift
 }
 
 function displayFrame(time: number, brightness: number) {
@@ -130,7 +127,7 @@ const state: LiveScreen = {
   tick(time) {
     if (this.mode === 'off') return
     const bright = this.brightness
-    if (this.mode === 'wake' || this.mode === 'idle') {
+    if (this.mode === 'idle') {
       wallpaper(time, Math.max(0.25, bright))
     } else if (this.mode === 'display') {
       displayFrame(time, Math.max(0.5, bright))

@@ -162,18 +162,6 @@ section[aria-label*='product film'] > div {
   color: rgba(255, 255, 255, 0.82);
 }
 
-.spec-hair {
-  height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.06));
-}
-
-.spec-dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 1px;
-  background: rgba(150, 178, 255, 0.85);
-}
-
 /* Act hero numeral: reads compact on a small screen, opens large on desktop. */
 .spec-num--stat {
   font-size: clamp(56px, 18vw, 96px);

@@ -51,13 +51,7 @@ export const PART_COPY: Record<PartId, PartCopy> = {
   screen: { label: 'DISPLAY', detail: '3200 \u00D7 1440 \u00B7 1-144 HZ, 2800 NITS' },
 }
 
-/** Meshes tagged `name="xray:..."` (legacy path) still map onto PartId. */
-const LEGACY_NAMES: Record<string, PartId> = {
-  'xray:soc': 'die',
-  'xray:battery': 'battery',
-  'xray:board': 'main',
-  'xray:camera': 'cameras',
-}
+/** Meshes resolve onto PartId through their `userData.part` tag. */
 
 // ---------------------------------------------------------------------------
 // Highlight protocol (driven by the director each frame)
@@ -155,8 +149,6 @@ function partOf(obj: THREE.Object3D): PartId | null {
     if (typeof tagged === 'string' && (PART_COPY as Record<string, PartCopy>)[tagged]) {
       return tagged as PartId
     }
-    const legacy = typeof node.name === 'string' ? LEGACY_NAMES[node.name] : undefined
-    if (legacy) return legacy
     node = node.parent
   }
   return null

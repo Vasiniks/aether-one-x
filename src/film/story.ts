@@ -188,9 +188,3 @@ export function smoothstep(t: number): number {
   return x * x * (3 - 2 * x)
 }
 
-/** Normalized position of `p` within the act that contains it (0..1). */
-export function localInAct(p: number, act: ActDef): number {
-  const span = act.end - act.start
-  if (span <= 0) return 1
-  return Math.min(1, Math.max(0, (p - act.start) / span))
-}
